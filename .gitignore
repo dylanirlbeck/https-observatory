@@ -1,0 +1,6 @@
+cache
+
+docs/ER.erdplus
+docs/ER.png
+node/database/state.json
+node/package-lock.json
