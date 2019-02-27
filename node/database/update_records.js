@@ -17,43 +17,33 @@ function updateDatabase(file_differences, loadDataRules) {
 
 function makePulls(loadDataRules) {
 	console.log("Executing makePulls...")
-	console.log('Starting directory: ' + process.cwd())
-	try {
-		if (process.cwd().includes('https-everywhere') == 0) { 
-			process.chdir('../cache/https-everywhere')
-		}
-		console.log('New directory: ' + process.cwd())
-	}
-	catch (err) {
-		console.log('error in makePulls: ' + err)
-	}
-	var preCommit = exec("git rev-parse HEAD", function(err, stdout_pre, stderr) {
+	const path = __dirname + "/../../" + "cache/https-everywhere"
+	process.chdir(path)
+	var preCommit = exec("git rev-parse HEAD", {cwd: path}, function(err, stdout_pre, stderr) {
 		console.log(stdout_pre)
-		var pulling = exec("git pull", function(err, stdout_pull, stderr) {
+		var pulling = exec("git pull", {cwd: path}, function(err, stdout_pull, stderr) {
 			console.log("Pulling...")
-			var postCommit = exec("git rev-parse HEAD", function(err, stdout_post, stderr) {
+			var postCommit = exec("git rev-parse HEAD", {cwd: path}, function(err, stdout_post, stderr) {
 				console.log(stdout_post)
-				exec("git diff" + preCommit + " " + postCommit + "--name-only",
-					function(err, stdout_differences, stderr) {
-						// this function will update the database in the case of differences
-						if (stdout_differences != "") {
-							updateDatabase(stdout_difference, loadDataRules)
-						} else {
-							console.log("No file differences...")
-						}
-					})
+				exec("git diff" + preCommit + " " + postCommit + "--name-only", {cwd: path},
+				function(err, stdout_differences, stderr) {
+					// this function will update the database in the case of differences
+					if (stdout_differences != "") {
+						updateDatabase(stdout_difference, loadDataRules)
+					} else {
+						console.log("No file differences...")
+					}
+				})
 			})
 		})
 		console.log("")
 	})
 }
-//var testList = "AdBlock.xml\nAdButler.xml\nAdExcite.xml";
-//updateDatabase(testList);
 
 const checkOnTimer = (connection_, loadDataRules) => {
-  connection = connection_;
-  makePulls(loadDataRules)
-  setInterval(makePulls, intervalAmount);
+	connection = connection_
+	makePulls(loadDataRules)
+	setInterval(makePulls, intervalAmount)
 }
 
 
@@ -80,5 +70,5 @@ const checkOnTimer = (connection_, loadDataRules) => {
 //      .exec(() => console.log('pull done.'));
 
 module.exports = {
-  checkOnTimer: checkOnTimer
+	checkOnTimer: checkOnTimer
 }
