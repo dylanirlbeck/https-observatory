@@ -34,25 +34,23 @@
                 <h1>Search by target</h1>
                 <form id="search" autocomplete="off">
                     <div class="box input-group">
-                        <input class="form-control input-block" type="text" name="target" placeholder="example.com" aria-label="example.com"></input>
+                        <input class="form-control input-block" type="text" name="target" placeholder="example.com" aria-label="example.com">
                         <span class="input-group-button">
                             <input class="btn text-right" type="submit" value="Search">
                         </span>
                     </div>
-                    <dl class="form-group errored" style="display: none" id="invalid-input-short">
+                    <dl class="form-group errored hidden" id="invalid-input-short">
                         <dd class="error">Invalid input: Query requires two or more characters</dd>
                     </dl>
-                    <dl class="form-group errored" style="display: none" id="no-results-found">
+                    <dl class="form-group errored hidden" id="no-results-found">
                         <dd class="error">No results found</dd>
                     </dl>
                 </form>
 
             </div>
-            <div class="border" id="result">
-                <div class="lds-roller text-center" id="lds-roller" style="display: none"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
-                <div class="Box" id="result-box" style="display:none"> 
-
-                </div>
+            <div class="lds-roller text-center hidden" id="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+            <div class="border hidden" id="result">
+                <div class="Box" id="result-box"></div>
             </div>
         </main>
     </body>

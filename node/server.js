@@ -6,13 +6,13 @@ const path = require("path")
 
 /* NPM libraries */
 const express = require("express")
-const app = express()
 
 /* Custom libraries */
 const database = require("./database/database")
 
 /* Configuration */
 const configuration = require("./configuration").express
+
 
 /* This is the main function of the entire server.
  * It is async so that we can use await inside of it.
@@ -22,6 +22,8 @@ const main = async () => {
 	const loaded = await database.loadData()
 	console.log("Loaded data", loaded)
 
+	const app = express()
+	app.disable("x-powered-by")
 	// Serve static content from webui folder
 	const webui = path.join(__dirname, "/../webui")
 	const xml =   path.join(__dirname, "/../cache/https-everywhere/src/chrome/content/rules")
@@ -29,25 +31,51 @@ const main = async () => {
 	app.use("/xml/", express.static(xml)) // TODO: add midleware to track release ruleset?
 
 	// Serve dynamic content from "/search?" API endpoint
-	app.get("/search?", (req, response) => {
-		let targetName = req.url.replace("/search?target=", "")
-		if (targetName.length < 2){
+	app.get("/search?", (request, response) => {
+		const targetName = "\%" + request.query.target + "\%"
+		if (targetName.length < 6){
 			response.send(JSON.stringify({"error" : true}))
 		}
-	    let targetQuery = 'SELECT * FROM `ruleset_targets` WHERE `target` LIKE \'%' + targetName + '%\''
-	    let joinQuery = 'SELECT * FROM ruleset_targets INNER JOIN rulesets ON ruleset_targets.rulesetid=rulesets.rulesetid WHERE ruleset_targets.target LIKE \'%' +targetName +'%\';'
-		database.query(joinQuery, []).then((result) => {
-			console.log("Search Query Served. ")
+		//const query = "SELECT * FROM rulesets WHERE rulesets.rulesetid IN (SELECT rulesetid FROM `ruleset_targets` WHERE `target` LIKE ?);"
+		//let targetQuery = 'SELECT * FROM `ruleset_targets` WHERE `target` LIKE \'%' + targetName + '%\''
+		const  joinQuery = 'SELECT * FROM ruleset_targets INNER JOIN rulesets ON ruleset_targets.rulesetid=rulesets.rulesetid WHERE ruleset_targets.target LIKE ?;'
+		database.query(joinQuery, [targetName]).then((result) => {
+			var data = []
+			for (const record of result){
+				var index = -1
+				for (const i in data)
+					if (data[i].name === record.name){
+						index = i
+						break
+					}
+				if (index === -1){
+					index = data.length
+					var formatted = {}
+					formatted["name"] = record.name
+					formatted["file"] = record.file
+					formatted["rulesetid"] = record.rulesetid
+					if (record.default_off)
+						formatted["default_off"] = record.default_off
+					if (record.comment)
+						formatted["comment"] = record.comment
+					if (record.mixedcontent[0] === 1)
+						formatted["mixedcontent"] = true
+					formatted["targets"] = [record.target]
+					data.push(formatted)
+				} else {
+					data[index].targets.push(record.target)
+				}
+			}
 			response.setHeader("Content-Type", "application/json")
-			response.send(JSON.stringify(result))
+			response.send(JSON.stringify(data))
 		})
 	})
 
-	app.get("/rulesetinfo?", (req, response) => {
+	app.get("/rulesetinfo?", (request, response) => {
 		//targetsQuery also gets the data about if the target supports hsts
 		
-		console.log("/rulesetinfo? request: ", JSON.stringify(req.query))
-		const rulesetid = req.query.rulesetid
+		console.log("/rulesetinfo? request: ", JSON.stringify(request.query))
+		const rulesetid = request.query.rulesetid
 		const longList  = [rulesetid, rulesetid, rulesetid, rulesetid, rulesetid, rulesetid]
 		const longQuery = "SELECT * FROM rulesets WHERE rulesets.rulesetid=?; \
 			SELECT * FROM ruleset_targets WHERE ruleset_targets.rulesetid=?; \
@@ -68,7 +96,7 @@ const main = async () => {
 				"exclusions": data[3],
 				"securecookies": data[4],
 				"tests": data[5]
-        	}
+			}
 			response.setHeader("Content-Type", "application/json")
 			response.send(JSON.stringify(result))
 		})
@@ -103,9 +131,6 @@ const main = async () => {
 
 	app.listen(configuration.port, () =>
 		console.log(`Server listening on port ${configuration.port}`))
-
-	database.query('SELECT 1 + 1 AS solution', []).then((res) => console.log(res))
-
 }
 
 // Start server

@@ -85,6 +85,7 @@ const loadPage = async () =>{
 	// TODO: use History API to display nice URL
 }
 
+/*
 function formToJSON(){
 
 	const ruleset_data = {
@@ -120,6 +121,7 @@ function formToJSON(){
 		]
 	}
 }
+*/
 
 /* Code below handles "Add" and "Delete" button clicks */
 

@@ -171,3 +171,7 @@ header {
 #result-box {
   overflow: auto;
 }
+
+.hidden {
+  display: none;
+}

@@ -4,8 +4,16 @@
 // We can ensure backwards-ompatibility later via a polyfill like
 // https://github.github.io/fetch/ or https://github.com/developit/unfetch
 
+/* Delay between submitting the search and showing loading animation
+ * This should be small enough for user not to notice the delay,
+ * but large enough for simple query to resolve and return.
+ * The idea is, loading animation should not appear for a fraction of a second
+ * because it essentally blinks and blinking is annoying.
+ */
+const loadingAnimationDelay = 500 /* ms */
+
 // This is from https://code.google.com/archive/p/form-serialize/
-function serialize(form) {
+const serialize = (form) => {
 	if (!form || form.nodeName !== "FORM")
 		return
 	var i, j, q = []
@@ -27,7 +35,7 @@ function serialize(form) {
 			case 'radio':
 				if (form.elements[i].checked) {
 					q.push(form.elements[i].name + "=" + encodeURIComponent(form.elements[i].value));
-				}						
+				}
 				break;
 			case 'file':
 				break;
@@ -69,14 +77,46 @@ function btnClick(value){
 	// rulesetIdReceiver(value)
 }
 
+const hideFeedback = () => {
+	document.getElementById("result").classList.add("hidden")
+	document.getElementById("invalid-input-short").classList.add("hidden")
+	document.getElementById("no-results-found").classList.add("hidden")
+	document.getElementById("lds-roller").classList.add("hidden")
+}
+
+const showLoadingAnimation = () => {
+	// Start loader animation and results div and errors to invisible
+	// Show "loading" animation
+	console.log("Showing load animation")
+	document.getElementById("lds-roller").classList.remove("hidden")
+}
+
+const showErrorShortInput = () => {
+	document.getElementById("invalid-input-short").classList.remove("hidden")
+}
+
+const showErrorNoResults = () => {
+	console.log("No results")
+	document.getElementById("no-results-found").classList.remove("hidden")
+}
+
 // TODO: use DOMContentLoaded
 window.addEventListener("load", function(event){
-	console.log("page loaded")
-	
-	
 	document.getElementById("search").addEventListener("submit", function(event){
 		event.preventDefault()
 
+		// Hide all messages that are currently displayed
+		hideFeedback()
+
+		// Error is true if the search query is less than 3 characters
+		const target = document.querySelector("INPUT[name='target']").value
+		if (target.length < 3){
+			showErrorShortInput()
+			return
+		}
+
+		// Show loading animation after a short delay (see commend above for explanation)
+		const loadingAnimationTimer = setTimeout(showLoadingAnimation, loadingAnimationDelay)
 
 		console.log(event, serialize(event.target))
 
@@ -84,12 +124,10 @@ window.addEventListener("load", function(event){
 
 		fetch(url)
 		.then((response) => {	// Check if fetch suceeded and extract the data
+			// Don't show loading animation
+			clearTimeout(loadingAnimationTimer)
+
 			if (response.ok) {
-				// Start loader animation and results div and errors to invisible
-				document.getElementById("lds-roller").style.display = "inline-block"
-				document.getElementById("result-box").style.display = "none"
-				document.getElementById("invalid-input-short").style.display = "none"
-				document.getElementById("no-results-found").style.display = "none"
 				return response.json()
 			} else {
 				return Promise.reject(new Error("Search request failed"))
@@ -101,42 +139,43 @@ window.addEventListener("load", function(event){
 			// Clear body of results field
 			document.getElementById("result-box").innerHTML = ""
 
-			// Error is true if the search query is less than 2 characters
 			if (data.error) {
-				document.getElementById("lds-roller").style.display = "none"
-				document.getElementById("result-box").style.display = "none"
-				document.getElementById("invalid-input-short").style.display = "block"
-				return
+				// TODO
 			}
 
 			// Show error if there are no results
-			if (data.length == 0) {
-				document.getElementById("no-results-found").style.display = "block"
+			if (data.length === 0){
+				showErrorNoResults()
+				return
 			}
 
 			// Iterate through every target found and create row
 			for (const target_found of data) {
 				// Parent row div
-				const row = document.createElement("div")
-				row.setAttribute("class", "Box-row d-flex flex-items-center")
-				row.setAttribute("id", "row")
+				const result = document.createElement("div")
+				result.setAttribute("class", "Box-row")
 
-				// Holds target and ruleset name
+				const header = document.createElement("div")
+				header.setAttribute("class", "d-flex flex-items-center")
+
+
+				// Holds ruleset name and file name
 				const row_title = document.createElement("div")
 				row_title.setAttribute("class", "flex-auto")
-				row_title.setAttribute("id", "row-title")
-
-				// target
-				const title = document.createElement("strong")
-				title.innerText = target_found.target
 
 				// ruleset name
-				const description = document.createElement("div")
-				description.setAttribute("class", "text-small text-gray-light")
-				description.innerText = target_found.name
+				const name = document.createElement("strong")
+				name.innerText = target_found.name
 
-				row_title.appendChild(title)
-				row_title.appendChild(description)
+				// ruleset file name
+				const file = document.createElement("div")
+				file.setAttribute("class", "text-small text-gray-light")
+				file.innerText = target_found.file
+
+				const targets = document.createElement("div")
+				targets.setAttribute("class", "text-small text-gray-light")
+				targets.innerText = target_found.targets.join(", ")
+
 
 				// Button to send ruleset id to pr form
 				const button = document.createElement("button")
@@ -144,21 +183,24 @@ window.addEventListener("load", function(event){
 				button.setAttribute("type", "button")
 				button.setAttribute("class", "btn btn-sm")
 				button.setAttribute("name", "button")
-				button.setAttribute("id", "button")
 				button.setAttribute("value", target_found.rulesetid)
 				button.innerText = "View"
 
-				row.appendChild(row_title)
-				row.appendChild(button)
+				header.appendChild(row_title)
+				header.appendChild(button)
+				result.appendChild(header)
+				row_title.appendChild(name)
+				row_title.appendChild(file)
+				result.appendChild(targets)
 
-				document.getElementById("result-box").appendChild(row)
+				document.getElementById("result-box").appendChild(result)
 			}
 
 			// Show results field and hide loading animation
-			document.getElementById("result-box").style.display = "block"
-			document.getElementById("lds-roller").style.display = "none"
+			document.getElementById("result").classList.remove("hidden")
+			document.getElementById("lds-roller").classList.add("hidden")
 		})
-		
+
 		return false
 	})
 })

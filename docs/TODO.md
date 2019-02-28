@@ -20,3 +20,7 @@ The `npm` package `github` id deprecated, it was renamed. Should use new name to
 https-everywhere/utils/labeller/index.js:var GitHubApi = require('github');
 
 Some rule's from is very long, check out what's that.
+
+## Web UI
+
+Handle large rulesets, like "Bitly vanity domains"
