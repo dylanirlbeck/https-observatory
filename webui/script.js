@@ -79,8 +79,7 @@ function btnClick(value){
 
 const hideFeedback = () => {
 	document.getElementById("result").classList.add("hidden")
-	document.getElementById("invalid-input-short").classList.add("hidden")
-	document.getElementById("no-results-found").classList.add("hidden")
+	document.getElementById("invalid-input").classList.add("hidden")
 	document.getElementById("lds-roller").classList.add("hidden")
 }
 
@@ -91,13 +90,10 @@ const showLoadingAnimation = () => {
 	document.getElementById("lds-roller").classList.remove("hidden")
 }
 
-const showErrorShortInput = () => {
-	document.getElementById("invalid-input-short").classList.remove("hidden")
-}
-
-const showErrorNoResults = () => {
-	console.log("No results")
-	document.getElementById("no-results-found").classList.remove("hidden")
+const showSearchError = (message) => {
+	message = message || "Invalid input."
+	document.getElementById("invalid-input-message").innerText = message
+	document.getElementById("invalid-input").classList.remove("hidden")
 }
 
 // TODO: use DOMContentLoaded
@@ -110,42 +106,33 @@ window.addEventListener("load", function(event){
 
 		// Error is true if the search query is less than 3 characters
 		const target = document.querySelector("INPUT[name='target']").value
-		if (target.length < 3){
-			showErrorShortInput()
-			return
-		}
 
 		// Show loading animation after a short delay (see commend above for explanation)
 		const loadingAnimationTimer = setTimeout(showLoadingAnimation, loadingAnimationDelay)
 
-		console.log(event, serialize(event.target))
-
 		const url = "/search?" + serialize(event.target)
 
 		fetch(url)
-		.then((response) => {	// Check if fetch suceeded and extract the data
+		.then(async (response) => {	// Check if fetch suceeded and extract the data
 			// Don't show loading animation
 			clearTimeout(loadingAnimationTimer)
 
 			if (response.ok) {
 				return response.json()
 			} else {
-				return Promise.reject(new Error("Search request failed"))
+				const data = await response.json()
+				return Promise.reject(new Error(data.message))
 			}
 		})
 		.then(function(data) {
-			// console.log(data)
-			// console.log(data.length)
 			// Clear body of results field
 			document.getElementById("result-box").innerHTML = ""
 
-			if (data.error) {
-				// TODO
-			}
-
 			// Show error if there are no results
 			if (data.length === 0){
-				showErrorNoResults()
+				// TODO: Design thing: should we have different UIs for
+				// errors and empty result set?
+				showSearchError("No results found.")
 				return
 			}
 
@@ -199,6 +186,12 @@ window.addEventListener("load", function(event){
 			// Show results field and hide loading animation
 			document.getElementById("result").classList.remove("hidden")
 			document.getElementById("lds-roller").classList.add("hidden")
+		}).catch ((error) => {
+			clearTimeout(loadingAnimationTimer)
+			const str = error.toString()
+			const message = str.substr(str.indexOf(": ")+2)
+			hideFeedback() // to hide loading animation
+			showSearchError(message)
 		})
 
 		return false

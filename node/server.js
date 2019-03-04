@@ -33,9 +33,15 @@ const main = async () => {
 	// Serve dynamic content from "/search?" API endpoint
 	app.get("/search?", (request, response) => {
 		const targetName = "\%" + request.query.target + "\%"
-		if (targetName.length < 6){
-			response.send(JSON.stringify({"error" : true}))
+
+		if (request.query.target.length < 2){
+			// Status code 400 "Bad Request"
+			response.status(400)
+			response.setHeader("Content-Type", "application/json")
+			response.send(JSON.stringify({"message" : "Invalid input: Query requires two or more characters."}))
+			return
 		}
+
 		//const query = "SELECT * FROM rulesets WHERE rulesets.rulesetid IN (SELECT rulesetid FROM `ruleset_targets` WHERE `target` LIKE ?);"
 		//let targetQuery = 'SELECT * FROM `ruleset_targets` WHERE `target` LIKE \'%' + targetName + '%\''
 		const  joinQuery = 'SELECT * FROM ruleset_targets INNER JOIN rulesets ON ruleset_targets.rulesetid=rulesets.rulesetid WHERE ruleset_targets.target LIKE ?;'
@@ -73,7 +79,7 @@ const main = async () => {
 
 	app.get("/rulesetinfo?", (request, response) => {
 		//targetsQuery also gets the data about if the target supports hsts
-		
+
 		console.log("/rulesetinfo? request: ", JSON.stringify(request.query))
 		const rulesetid = request.query.rulesetid
 		const longList  = [rulesetid, rulesetid, rulesetid, rulesetid, rulesetid, rulesetid]
