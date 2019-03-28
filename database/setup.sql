@@ -7,7 +7,7 @@ CREATE DATABASE `project`;
 
 -- Create user "server" with limited permissions
 -- Could setup password with IDENTIFIED BY '<hash>', but there is no need to use passwords because db is visible only from localhost
-CREATE USER 'server'@'localhost';
+CREATE USER 'server'@'localhost'; -- IDENTIFIED BY 'password';
 -- Set up a password:
 -- ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'password';
 -- ALTER USER 'root'@'localhost' IDENTIFIED BY 'password';
@@ -27,55 +27,95 @@ CREATE TABLE `users` (
 ) CHARACTER SET ascii;
 
 CREATE TABLE `rulesets` (
-	`rulesetid` INT NOT NULL UNIQUE AUTO_INCREMENT,
-	`name` VARCHAR(100) NOT NULL,    -- Turns out, name is not unique TODO: bring this to maintainers' attention
-	`file` VARCHAR(256) UNIQUE,      -- The file is unique because per docs file contains exactly one ruleset
-	`default_off` VARCHAR(100),      -- there are multiple possible values and their combinations
-	`mixedcontent` BIT NOT NULL      -- True or 1 if and only if ruleset attribute platform="mixedcontent"
-	COMMENT 'ruleset attribute platform="mixedcontent"',
-	`timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
---	rules ENUM('trivial', 'nontrivial', 'both') NOT NULL DEFAULT 'trivial',
-	`comment` VARCHAR(255)
+	`rulesetid` INT NOT NULL UNIQUE PRIMARY KEY AUTO_INCREMENT
+		COMMENT 'Internal identifier (for database use only)',
+	`name` VARCHAR(100) NOT NULL        -- Turns out, name is not unique TODO: bring this to maintainers' attention
+		COMMENT 'Value of the ruleset attribute "name"',
+	`file` VARCHAR(150) NOT NULL-- TODO: UNIQUE -- Per docs file contains exactly one ruleset
+		COMMENT 'Name of XML file the ruleset was loaded from',
+	`default_off` VARCHAR(100)          -- there are multiple possible values and their combinations
+		COMMENT 'Value of the ruleset attribute "default_off"',
+	`mixedcontent` BIT NOT NULL         -- True or 1 if and only if ruleset attribute platform="mixedcontent"
+		COMMENT 'Ruleset has attribute platform="mixedcontent"',
+	`timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		COMMENT 'Latest update timestamp',
+	`comment` VARCHAR(255) DEFAULT NULL
+		COMMENT 'Any freeform text comment (for human use only)'
 ) CHARACTER SET utf8mb4;
 
 CREATE TABLE `ruleset_targets` (
-	`rulesetid` INT NOT NULL,
-	`target` VARCHAR(255) NOT NULL COMMENT "ASCII case-insensitive", -- UNIQUE?
---	`wildcard` ENUM('subdomains', 'no', 'domain_and_subdomains', 'right_side') NOT NULL,
+	`rulesetid` INT NOT NULL
+		COMMENT 'Internal identifier (for database use only)',
+	`target` VARCHAR(255) NOT NULL -- A full domain name is limited to 255 octets (including the separators). (IETF RFC2181 section 11).
+	        COMMENT 'Value of "host" attribute, encoded in Punycode if needed. ASCII case insensitive',
 	`comment` VARCHAR(255) DEFAULT NULL
+		COMMENT 'Any freeform text comment (for human use only)',
+	CONSTRAINT FK_rulesetid_targets
+		FOREIGN KEY (rulesetid) REFERENCES rulesets(rulesetid)
+		ON DELETE CASCADE
 ) CHARACTER SET ascii;
 
 CREATE TABLE `ruleset_rules` (
-	`rulesetid` INT NOT NULL,
-	`rulesetruleid` INT NOT NULL AUTO_INCREMENT PRIMARY KEY, -- TODO: remove this
-	`from` VARCHAR(5000) NOT NULL,
-	`to` VARCHAR(255) NOT NULL,
+	`rulesetid` INT NOT NULL
+		COMMENT 'Internal identifier (for database use only)',
+	`rulesetruleid` INT NOT NULL AUTO_INCREMENT PRIMARY KEY
+		COMMENT 'TODO: remove this',
+	`from` VARCHAR(5000) NOT NULL
+		COMMENT 'JS regular expression',
+	`to` VARCHAR(255) NOT NULL
+		COMMENT 'JS replacement regular expression',
 	`comment` VARCHAR(255)
-	-- PRIMARY KEY (`rulesetid`, rulesetruleid) -- (`rulesetid`, `from`)
+		COMMENT 'Any freeform text comment (for human use only)',
+	CONSTRAINT FK_rulesetid_rules
+		FOREIGN KEY (rulesetid) REFERENCES rulesets(rulesetid)
+		ON DELETE CASCADE
+	-- PRIMARY KEY (`rulesetid`, `rulesetruleid`) -- (`rulesetid`, `from`)
 );
 
 CREATE TABLE `ruleset_tests` (
-	`rulesetid` INT NOT NULL,
-	`rulesettestid` INT NOT NULL AUTO_INCREMENT PRIMARY KEY, -- TODO: remove this
-	`url` VARCHAR(5000) NOT NULL,
+	`rulesetid` INT NOT NULL
+		COMMENT 'Internal identifier (for database use only)',
+	`rulesettestid` INT NOT NULL AUTO_INCREMENT PRIMARY KEY
+		COMMENT 'TODO: remove this',
+	`url` VARCHAR(5000) NOT NULL
+		COMMENT 'URL that will be queried',
 	`comment` VARCHAR(255)
+		COMMENT 'Any freeform text comment (for human use only)',
+	CONSTRAINT FK_rulesetid_tests
+		FOREIGN KEY (rulesetid) REFERENCES rulesets(rulesetid)
+		ON DELETE CASCADE
 	-- PRIMARY KEY (`rulesetid`, `url`)
 );
 
 CREATE TABLE `ruleset_exclusions` (
-	`rulesetid` INT NOT NULL,
-	`rulesetexclusionid` INT NOT NULL AUTO_INCREMENT PRIMARY KEY, -- TODO: remove this
-	`pattern` VARCHAR(5000) NOT NULL,
+	`rulesetid` INT NOT NULL
+		COMMENT 'Internal identifier (for database use only)',
+	`rulesetexclusionid` INT NOT NULL AUTO_INCREMENT PRIMARY KEY
+		COMMENT 'TODO: remove this',
+	`pattern` VARCHAR(5000) NOT NULL
+		COMMENT 'Exclussion pattern',
 	`comment` VARCHAR(255)
+		COMMENT 'Any freeform text comment (for human use only)',
+	CONSTRAINT FK_rulesetid_exclussions
+		FOREIGN KEY (rulesetid) REFERENCES rulesets(rulesetid)
+		ON DELETE CASCADE
 	-- PRIMARY KEY (`rulesetid`, `pattern`)
 );
 
 CREATE TABLE `ruleset_securecookies` (
-	`rulesetid` INT NOT NULL,
-	`rulesetsecurecookieid` INT NOT NULL AUTO_INCREMENT PRIMARY KEY, -- TODO: remove this
-	`host` VARCHAR(5000) NOT NULL,
-	`name` VARCHAR(5000) NOT NULL,
+	`rulesetid` INT NOT NULL
+		COMMENT 'Internal identifier (for database use only)',
+	`rulesetsecurecookieid` INT NOT NULL AUTO_INCREMENT PRIMARY KEY
+		COMMENT 'TODO: remove this',
+	`host` VARCHAR(5000) NOT NULL
+		COMMENT 'Regular expression for matching domain of the cookie',
+	`name` VARCHAR(5000) NOT NULL
+		COMMENT 'Regular expression for matching name of the cookie',
 	`comment` VARCHAR(255)
+		COMMENT 'Any freeform text comment (for human use only)',
+	CONSTRAINT FK_rulesetid_securecookies
+		FOREIGN KEY (rulesetid) REFERENCES rulesets(rulesetid)
+		ON DELETE CASCADE
 	-- PRIMARY KEY (`rulesetid`, `host`, `name`)
 );
 
@@ -90,18 +130,20 @@ CREATE TABLE evidence_hsts_preload (
 	-- A full domain name is limited to 255 octets (including the separators).
 	-- Source: https://tools.ietf.org/html/rfc2181#section-11
 	-- In practice preload entry domains are short, most old (and all new ones) are eTLD+1.
-	`name` VARCHAR(255) NOT NULL PRIMARY KEY,
+	`name` VARCHAR(255) NOT NULL PRIMARY KEY
+		COMMENT 'Fully-qualified domain name (IDN in punycode)',
 	-- The policy under which the domain is part of the
 	-- preload list. This field is used for list maintenance.
-	`policy` ENUM('test',                  -- test domains
-	            'google',                  -- Google-owned sites.
-	            'custom',                  -- entries without includeSubdomains or with HPKP/Expect-CT
-	            'bulk-legacy',             -- bulk entries preloaded before Chrome 50.
-	            'bulk-18-weeks',           -- bulk entries with max-age >= 18 weeks (Chrome 50-63).
-	            'bulk-1-year',             -- bulk entries with max-age >= 1 year (after Chrome 63).
-	            'public-suffix-requested', -- public suffixes preloaded at the owners request (manual).
-	            'public-suffix'            -- this option is NOT DOCUMENTED, but appears to apply to Google's own TLDs (manual).
-	            ) NOT NULL,
+	`policy` ENUM(                             -- These values come from JSON and new values might be added later.
+			'test',                    -- Test domains.
+			'google',                  -- Google-owned sites.
+			'custom',                  -- Entries without includeSubdomains or with HPKP/Expect-CT.
+			'bulk-legacy',             -- Bulk entries preloaded before Chrome 50.
+			'bulk-18-weeks',           -- Bulk entries with max-age >= 18 weeks (Chrome 50-63).
+			'bulk-1-year',             -- Bulk entries with max-age >= 1 year (after Chrome 63).
+			'public-suffix-requested', -- Public suffixes preloaded at the owners request (manual).
+			'public-suffix'            -- This option is NOT DOCUMENTED, but appears to apply to Google's own TLDs (manual).
+		) NOT NULL,
 	-- This optional boolean tells if policy applies only to this domain or all its subdomains
 	-- This is for backwards-compatibility (new entries are required to have it set to "true").
 	-- It means:
