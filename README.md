@@ -1,5 +1,8 @@
 # HTTPS Observatory
 
+[![Known Vulnerabilities](https://snyk.io/test/github/bershanskiy/https-observatory/badge.svg?targetFile=node%2Fpackage.json)](https://snyk.io/test/github/bershanskiy/https-observatory?targetFile=node%2Fpackage.json)
+[![Dependencies](https://david-dm.org/bershanskiy/https-observatory.svg?path=node)](https://david-dm.org/)
+
 This is an automated system for creating and maintaining HTTPS rules.
 
 To run the server, check out all dependencies in `cache`, start the database, and run `node node/server.js`.
