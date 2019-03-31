@@ -72,7 +72,7 @@ const main = async () => {
     if (request.query.target.length < 2){
       // Status code 400 "Bad Request"
       response.status(400)
-      response.setHeader("Content-Type", "serverlication/json")
+      response.setHeader("Content-Type", "application/json")
       response.send(JSON.stringify({"message" : "Invalid input: Query requires two or more characters."}))
       return
     }
@@ -107,13 +107,13 @@ const main = async () => {
           data[index].targets.push(record.target)
         }
       }
-      response.setHeader("Content-Type", "serverlication/json")
+      response.setHeader("Content-Type", "application/json")
       response.send(JSON.stringify(data))
     })
   })
 
   server.get("/rulesetinfo?", (request, response) => {
-    console.log("/rulesetinfo? request: ", JSON.stringify(request.query))
+    console.log("Request: /rulesetinfo? query:", JSON.stringify(request.query))
 
     const rulesetid = request.query.rulesetid
     const longList  = [rulesetid, rulesetid, rulesetid, rulesetid, rulesetid, rulesetid]
@@ -139,9 +139,22 @@ const main = async () => {
         "securecookies": data[4],
         "tests": data[5]
       }
-      response.setHeader("Content-Type", "serverlication/json")
+      response.setHeader("Content-Type", "application/json")
       response.send(JSON.stringify(result))
     })
+  })
+
+  // Parse body into JSON
+  // This middlevare is put here so that it does not run for all the endpoints above.
+  // All endpoints that accept requests with JSON payload in body must go below.
+  server.use(express.json())
+
+  server.put("/save/", (request, response) => {
+    const ruleset = request.body
+    console.log(JSON.stringify(ruleset))
+    response.setHeader("Content-Type", "application/json")
+    response.status(201)
+    response.send(JSON.stringify({'message': 'Received'}))
   })
 
   server.listen(configuration.port, () =>

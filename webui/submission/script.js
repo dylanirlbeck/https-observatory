@@ -7,13 +7,15 @@ const strings = {
   }
 }
 
+const types = ["targets", "rules", "exclusions", "tests", "securecookies"]
+
 const displayData = (data) => {
   document.getElementById("name").value = data.name
   document.getElementById("file").value = data.file
   document.getElementById("mixedcontent").checked = data.mixedcontent
-  // TODO: default_off
+  document.getElementById("default_off").value = data.default_off ? data.default_off : ""
 
-  for (const type of ["targets", "rules", "exclusions", "securecookies"]){
+  for (const type of types){
     const list = document.getElementById(type)
     const array = data[type]
     if (!array)
@@ -27,21 +29,53 @@ const displayData = (data) => {
       }
     }
   }
-  console.log("displayData finished")
 }
 
-/* Use new thing */
-const queryData = (rulesetid) => {
+const readForm = () => {
+  try {
+    // Read unique attributes
+    let ruleset = {
+      name: document.getElementById("name").value,
+      file: document.getElementById("file").value,
+      mixedcontent: document.getElementById("mixedcontent").checked,
+      default_off: document.getElementById("default_off").value
+    }
+
+    // Read array attributes
+    for (const type of types){
+      const ul = document.getElementById(type)
+      const lis = ul.getElementsByTagName("LI")
+      let array = []
+      for (const li of lis){
+        if (li.getAttribute("id") !== null)
+          continue // this is a prototype
+        const inputs = li.getElementsByTagName("INPUT")
+	let record = {}
+	for (const input of inputs){
+          const key = input.name
+          const value = input.value
+	  record[key] = value
+        }
+	array.push(record)
+      }
+      ruleset[type] = array
+    }
+    return ruleset
+  } catch(e){
+    console.error("Could not parse data")
+  }
+}
+
+/* Fetch ruleser information and display it in the form */
+const fetchData = (rulesetid) => {
   if (!rulesetid)
     return
 
   const url = "/rulesetinfo?rulesetid=" + rulesetid
-  // console.log(url)
 
   fetch(url)
   .then((response) => {   // Check if fetch suceeded and extract the data
     if (response.ok) {
-      console.log("Response received")
       return response.json()
     } else {
       return Promise.reject(new Error("Search request failed"))
@@ -49,11 +83,10 @@ const queryData = (rulesetid) => {
   })
   .then((data) => {
     displayData(data)
-    console.log(data.file)
     if (data.file)
       queryXML(data.file)
   })
-  .catch((error) => console.log("failed to display data", error))
+  .catch((error) => console.error("failed to display data", error))
 }
 
 const queryXML = (filename) => {
@@ -65,7 +98,6 @@ const queryXML = (filename) => {
   fetch(url)
   .then((response) => {   // Check if fetch suceeded and extract the data
     if (response.ok) {
-      console.log("XML received")
       return response.text()
     } else {
       return Promise.reject(new Error("XML unavailable at " + url))
@@ -74,7 +106,7 @@ const queryXML = (filename) => {
   .then((xml) => {
     document.getElementById("xml").innerText = xml//response.text()//"some"//xml
   })
-  .catch((error) => console.log("failed to display XML"))
+  .catch((error) => console.error("failed to display XML"))
 }
 
 
@@ -82,8 +114,8 @@ const loadPage = async () =>{
   const url_string = window.location.href
   const url = new URL(url_string)
   const rulesetid = url.searchParams.get("rulesetid")
-  console.log(rulesetid)
-  queryData(rulesetid)
+  console.log("Displaying ruleset: rulesetid = " + rulesetid)
+  fetchData(rulesetid)
   // TODO: use History API to display nice URL
 }
 
@@ -93,13 +125,10 @@ const loadPage = async () =>{
 const deleteElement = (button) => {
   const li = button.parentNode
   const ul = li.parentNode
-  console.log("ul", ul)
   const minCount = ul.hasAttribute("min-count") ? ul.getAttribute("min-count") : 0
   const currCount = ul.getElementsByTagName("LI").length - 1 // Remember about the prototype node
-  console.log(currCount)
   if (currCount > minCount){
     li.parentNode.removeChild(li)
-    console.log("removed node")
   } else {
     console.log("Too few children")
   }
@@ -113,7 +142,7 @@ const addElement = (ul) => {
     ul.appendChild(node)
     return node
   } catch (e){
-    console.log("Could not add element")
+    console.error("Could not add element")
   }
 }
 
@@ -129,6 +158,44 @@ const init = () => {
     /* "Delete" button */
     if (event.target.classList.contains("btn-delete"))
       deleteElement(event.target)
+  })
+
+  /* Submit button */
+  document.getElementById("submit").addEventListener("click", (event) => {
+    const ruleset = readForm()
+    if (!ruleset)
+      return // TODO: display error
+
+    console.log(ruleset)
+
+    /* Submit the ruleset as a JSON.
+     * JSON represents the nested structures and arrays which are impossible to represent in URL params
+     * JSON can handle large payloads while URLs are limited in length
+     */
+    fetch("/save/", {
+      method: "PUT",
+//    mode: "cors", // no-cors, cors, *same-origin
+//    cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+//    credentials: "same-origin", // include, *same-origin, omit
+      headers: {
+            "Content-Type": "application/json",
+      },
+//        redirect: "follow", // manual, *follow, error
+      referrer: "no-referrer", // no-referrer, *client
+      body: JSON.stringify(ruleset),
+    })
+    .then(response => {
+      if (response.ok)
+        return response.json()
+      else
+        return Promise.reject(new Error("Failed to submit data"))
+    })
+    .then((data) => {
+//      displayData(data)
+//      if (data.file)
+//        queryXML(data.file)
+    })
+    .catch((error) => console.error("Pull request failed", error))
   })
 }
 
