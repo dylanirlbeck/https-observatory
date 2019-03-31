@@ -7,6 +7,7 @@ const path = require("path")
 /* NPM libraries */
 const express = require("express")
 const compression = require("compression")
+const helmet = require("helmet")
 
 /* Custom libraries */
 const database = require("./database/database.js")
@@ -31,6 +32,33 @@ const main = async () => {
 
   // Compress trafic to save bandwidth
   server.use(compression())
+
+  server.use(helmet({
+    // Set "X-Frame-Options: DENY"
+    "frameguard": {
+      "action": "deny"
+    },
+    // Set "Referrer-Policy: no-referrer"
+    "referrerPolicy": {
+      "policy": "no-referrer"
+    },
+    // Content Security Policy
+    "contentSecurityPolicy": {
+      "directives": {
+        "default-src": ["'self'"],
+        "script-src": ["'self'"],
+        "style-src": ["'self'"],
+        "connect-src": ["'self'"],
+        "worker-src": ["'none'"],
+        "child-src": ["'none'"],
+        "base-uri": ["'none'"]
+      }
+    },
+    // Disable Adobe Flash and Adobe Acrobat
+    "permittedCrossDomainPolicies": {
+      "permittedPolicies": "none"
+    }
+  }))
 
   // Serve static content from webui folder
   const webui = path.join(__dirname, "/../webui")
