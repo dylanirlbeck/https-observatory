@@ -6,6 +6,7 @@ const path = require("path")
 
 /* NPM libraries */
 const express = require("express")
+const compression = require("compression")
 
 /* Custom libraries */
 const database = require("./database/database.js")
@@ -27,6 +28,9 @@ const main = async () => {
 
   // Do not leak information about Express server in "x-powered-by" header
   server.disable("x-powered-by")
+
+  // Compress trafic to save bandwidth
+  server.use(compression())
 
   // Serve static content from webui folder
   const webui = path.join(__dirname, "/../webui")
