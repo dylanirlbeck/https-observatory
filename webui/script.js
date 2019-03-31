@@ -83,7 +83,6 @@ const hideFeedback = () => {
 const showLoadingAnimation = () => {
   // Start loader animation and results div and errors to invisible
   // Show "loading" animation
-  console.log("Showing load animation")
   document.getElementById("lds-roller").classList.remove("hidden")
 }
 
@@ -160,14 +159,12 @@ window.addEventListener("load", (event) => {
         targets.setAttribute("class", "text-small text-gray-light")
         targets.innerText = ruleset.targets.join(", ")
 
-
         // Button to send ruleset id to pr form
         const button = document.createElement("button")
-        button.setAttribute("onclick", "btnClick(value)")
+        button.addEventListener("click", (e) => btnClick(ruleset.rulesetid))
         button.setAttribute("type", "button")
         button.setAttribute("class", "btn btn-sm")
         button.setAttribute("name", "button")
-        button.setAttribute("value", ruleset.rulesetid)
         button.innerText = "View"
 
         header.appendChild(row_title)
