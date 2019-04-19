@@ -1,15 +1,40 @@
 "use strict"
 
-const strings = {
-  "securecookies": {
-    "title": "Secure Cookies",
-    "subtitle": "These define the cookies that should be secured"
-  }
+let state = {
+  rulesetid: undefined, // This is null iff the currently displayed data might be incorrect
+                        // E.g., nothing is displayed or data is being loaded
+  user: "TODO",         // This is null iff the user is not logged in
+  proposalid: undefined // This is null iff the page displays official ruleset version, form is not editable
+                        // Otherwise it's an integer id proposalid
+}
+
+const login = () => {
+  state.user = "TODO"
+  document.getElementById("button-fork-create").classList.remove("hidden")
+  document.getElementById("title").innerText = "Logged in, wiewing ruleset"
+}
+
+const logout = () => {
+  document.getElementById("submit").disabled = true
+  document.getElementById("save").disabled = true
+  document.getElementById("button-fork-delete").classList.add("hidden")
+  document.querySelectorAll("INPUT").forEach((a) => a.disabled = true)
+  document.querySelectorAll(".btn").forEach((a) => a.disabled = true)
+}
+
+const edit = () => {
+  document.querySelectorAll("INPUT").forEach((a) => a.disabled = false)
+  document.querySelectorAll(".btn").forEach((a) => a.disabled = false)
+  document.getElementById("submit").disabled = false
+  document.getElementById("save").disabled = false
+  document.getElementById("button-fork-create").classList.add("hidden")
+  document.getElementById("button-fork-delete").classList.remove("hidden")
 }
 
 const types = ["targets", "rules", "exclusions", "tests", "securecookies"]
 
 const displayData = (data) => {
+<<<<<<< HEAD:docs/submission/script.js
   document.getElementById("name").value = data.name
   document.getElementById("file").value = data.file
   document.getElementById("mixedcontent").checked = data.mixedcontent
@@ -26,11 +51,77 @@ const displayData = (data) => {
         const input = node.querySelector("INPUT[name='"+attribute+"']")
         if (input)
           input.value = record[attribute]
+=======
+  try {
+    // Invalidate past rulesetid
+    state.rulesetid = null
+
+    // Ruleset unique attributes
+    document.getElementById("name").value = data.name
+    document.getElementById("file").value = data.file
+    document.getElementById("mixedcontent").checked = data.mixedcontent
+    document.getElementById("default_off").value = data.default_off ? data.default_off : ""
+
+    // Ruleset "array" attributes
+    for (const type of types){
+      const list = document.getElementById(type)
+      const array = data[type]
+      if (!array)
+        continue
+      for (const record of array){
+        const node = addElement(list)
+        for (const attribute in record){
+          const field = node.querySelector("[name='"+attribute+"']")
+          if (field)
+            field.value = record[attribute]
+        }
       }
     }
+
+    // Set new ruleset id
+    state.rulesetid = data.rulesetid
+  } catch (e) {
+    console.error("Failed to display data", data, error)
   }
 }
 
+const readForm = () => {
+  try {
+    // Read unique attributes
+    let ruleset = {
+      name: document.getElementById("name").value,
+      file: document.getElementById("file").value,
+      mixedcontent: document.getElementById("mixedcontent").checked,
+      default_off: document.getElementById("default_off").value
+    }
+
+    // Read array attributes
+    for (const type of types){
+      const ul = document.getElementById(type)
+      const lis = ul.getElementsByTagName("LI")
+      let array = []
+      for (const li of lis){
+        if (li.getAttribute("id") !== null)
+          continue // this is a prototype
+        const inputs = li.getElementsByTagName("INPUT")
+	let record = {}
+	for (const input of inputs){
+          const key = input.name
+          const value = input.value
+	  record[key] = value
+        }
+	array.push(record)
+>>>>>>> upstream/master:webui/submission/script.js
+      }
+      ruleset[type] = array
+    }
+    return ruleset
+  } catch(e){
+    console.error("Could not parse data")
+  }
+}
+
+<<<<<<< HEAD:docs/submission/script.js
 const readForm = () => {
   try {
     // Read unique attributes
@@ -66,6 +157,8 @@ const readForm = () => {
   }
 }
 
+=======
+>>>>>>> upstream/master:webui/submission/script.js
 /* Fetch ruleser information and display it in the form */
 const fetchData = (rulesetid) => {
   if (!rulesetid)
@@ -83,6 +176,10 @@ const fetchData = (rulesetid) => {
   })
   .then((data) => {
     displayData(data)
+<<<<<<< HEAD:docs/submission/script.js
+=======
+    console.log("DATA: ", data)
+>>>>>>> upstream/master:webui/submission/script.js
     if (data.file)
       queryXML(data.file)
   })
@@ -109,11 +206,15 @@ const queryXML = (filename) => {
   .catch((error) => console.error("failed to display XML"))
 }
 
-
 const loadPage = async () =>{
   const url_string = window.location.href
   const url = new URL(url_string)
+<<<<<<< HEAD:docs/submission/script.js
   const rulesetid = url.searchParams.get("rulesetid")
+=======
+  const rulesetid_str = url.searchParams.get("rulesetid")
+  const rulesetid = Number(rulesetid_str)
+>>>>>>> upstream/master:webui/submission/script.js
   console.log("Displaying ruleset: rulesetid = " + rulesetid)
   fetchData(rulesetid)
   // TODO: use History API to display nice URL
@@ -143,14 +244,62 @@ const addElement = (ul) => {
     return node
   } catch (e){
     console.error("Could not add element")
+<<<<<<< HEAD:docs/submission/script.js
+=======
   }
 }
 
+/* Submit the ruleset as a JSON.
+ * JSON represents the nested structures and arrays which are impossible to represent in URL params
+ * JSON can handle large payloads while URLs are limited in length
+ */
+const save = () => {
+  const ruleset = readForm()
+  if (!ruleset)
+    return // TODO: display error
+
+  console.log(ruleset)
+
+  const proposal = {
+    author: state.user,
+    rulesetid: state.rulesetid,
+    proposalid: state.proposalid,
+    ruleset: ruleset
+>>>>>>> upstream/master:webui/submission/script.js
+  }
+
+  fetch("/save/", {
+    method: "PUT",
+    cache: "no-cache",
+    headers: {
+        "Content-Type": "application/json",
+    },
+    referrer: "origin",
+    body: JSON.stringify(proposal),
+  })
+  .then(response => {
+    if (response.ok)
+      return response.json()
+    else
+      return Promise.reject(new Error("Failed to submit data"))
+    })
+  .then((data) => {
+//    displayData(data)
+//    if (data.file)
+//      queryXML(data.file)
+  })
+  .catch((error) => console.error("Pull request failed", error))
+}
+
+
 /* Initialize the document with event handlers */
 const init = () => {
+  logout()
+
   document.addEventListener("click", (event) => {
     /* "Add" button */
     if (event.target.classList.contains("btn-add")){
+      event.preventDefault()
       const dl = event.target.parentNode.parentNode.parentNode
       const ul = dl.getElementsByTagName("UL")[0]
       addElement(ul)
@@ -160,6 +309,7 @@ const init = () => {
       deleteElement(event.target)
   })
 
+<<<<<<< HEAD:docs/submission/script.js
   /* Submit button */
   document.getElementById("submit").addEventListener("click", (event) => {
     const ruleset = readForm()
@@ -183,11 +333,38 @@ const init = () => {
 //        redirect: "follow", // manual, *follow, error
       referrer: "no-referrer", // no-referrer, *client
       body: JSON.stringify(ruleset),
+=======
+  document.getElementById("button-fork-delete").addEventListener("click", (event) => {
+    console.log("Delete!")
+    logout()
+  })
+
+  /* Fork button */
+  document.getElementById("button-fork-create").addEventListener("click", (event) => {
+    console.log("Fork!")
+    const proposal = {
+      author: state.user,
+      rulesetid: state.rulesetid
+    }
+
+    /* Submit the ruleset as a JSON.
+     * Could do it via URL encoding, but this is easier for now
+     */
+    fetch("/new/", {
+      method: "POST",
+      cache: "no-cache",
+      headers: {
+            "Content-Type": "application/json",
+      },
+      referrer: "origin",
+      body: JSON.stringify(proposal),
+>>>>>>> upstream/master:webui/submission/script.js
     })
     .then(response => {
       if (response.ok)
         return response.json()
       else
+<<<<<<< HEAD:docs/submission/script.js
         return Promise.reject(new Error("Failed to submit data"))
     })
     .then((data) => {
@@ -196,6 +373,55 @@ const init = () => {
 //        queryXML(data.file)
     })
     .catch((error) => console.error("Pull request failed", error))
+=======
+        return Promise.reject(new Error("Failed to create new fork"))
+    })
+    .then((data) => {
+      console.log(data)
+      state.proposalid = data.proposalid
+      edit()
+    })
+    .catch((error) => console.error("Failed to create new fork", error))
+  })
+
+  /* Fork Delete button */
+  document.getElementById("button-fork-delete").addEventListener("click", (event) => {
+    console.log("Fork delete!")
+    if (!state.proposalid)
+      return
+
+    const url = "/delete?proposalid=" + state.proposalid
+
+    /* Submit query in URL encoded form.
+     */
+    fetch(url, {
+      method: "DELETE",
+      cache: "no-cache",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      referrer: "origin"
+    })
+    .then(response => {
+      if (response.ok)
+        console.log("Deleted")
+      else
+        return Promise.reject(new Error("Failed to delete"))
+    })
+    .catch((error) => console.error("Failed to delete", error))
+  })
+
+
+  /* Submit button */
+  document.getElementById("submit").addEventListener("click", (event) => {
+    console.log("Submit! Not implemented yet...")
+    save()
+  })
+
+  document.getElementById("save").addEventListener("click", (event) => {
+    console.log("Save!")
+    save()
+>>>>>>> upstream/master:webui/submission/script.js
   })
 }
 

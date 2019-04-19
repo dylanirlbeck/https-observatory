@@ -70,10 +70,6 @@ const serialize = (form) => {
   return queries.join("&")
 }
 
-const btnClick = (value) => {
-  window.location.href = "/submission/?rulesetid=" + value
-}
-
 const hideFeedback = () => {
   document.getElementById("result").classList.add("hidden")
   document.getElementById("invalid-input").classList.add("hidden")
@@ -159,12 +155,21 @@ window.addEventListener("load", (event) => {
         targets.setAttribute("class", "text-small text-gray-light")
         targets.innerText = ruleset.targets.join(", ")
 
+<<<<<<< HEAD:docs/script.js
         // Button to send ruleset id to pr form
         const button = document.createElement("button")
         button.addEventListener("click", (e) => btnClick(ruleset.rulesetid))
         button.setAttribute("type", "button")
         button.setAttribute("class", "btn btn-sm")
         button.setAttribute("name", "button")
+=======
+        // "View" button
+        const link = "/submission/?rulesetid=" + ruleset.rulesetid
+        const button = document.createElement("A")
+        button.href = link
+        button.setAttribute("class", "btn btn-sm")
+        button.setAttribute("role", "button") // TODO: does this really "improve accessibility"?
+>>>>>>> upstream/master:webui/script.js
         button.innerText = "View"
 
         header.appendChild(row_title)

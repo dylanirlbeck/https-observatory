@@ -1,3 +1,8 @@
+/** Database glue code
+ * This code abstracts away the database schema and
+ * handles conversion between SQL and JavaScript objects.
+ */
+
 "use strict"
 
 /* Node.js standard libraries */
@@ -53,6 +58,7 @@ const isOnline = async (query, args) => {
 
 const queryPromise = async (query, args) => {
   return new Promise((resolve, reject) => {
+    args = args || []
     connection.query(query, args, function (error, results, fields) {
       if (error){
         console.log(error)
@@ -79,22 +85,18 @@ const loadDataHSTS = async() => {
       formated_hsts.push([
         record.name,
         record.policy,
-        record.include_subdomains,
-        record.include_subdomains_for_pinning,
+        record.include_subdomains === true,
+        record.include_subdomains_for_pinning === true,
         record.mode === "force-https",
         record.pins,
         record.expect_ct_report_uri ? record.expect_ct_report_uri : null
       ])
     }
-    connection.query("INSERT INTO evidence_hsts_preload (name, policy, include_subdomains, include_subdomains_for_pinning, force_https, pins, expect_ct_report_uri) VALUES ?", [formated_hsts],
-    function (error, results, fields) {
-      if (error){
-        console.log(error, results, fields)
-        reject(false)
-      } else {
-        console.log("Database: Inserted all HSTS preload records")
-        resolve(true)
-      }
+    queryPromise("INSERT INTO evidence_hsts_preload (name, policy, include_subdomains, include_subdomains_for_pinning, force_https, pins, expect_ct_report_uri) VALUES ?", [formated_hsts])
+    .catch(e => {reject(false)})
+    .then(() => {
+      console.log("Database: Inserted all HSTS preload records.")
+      resolve(true)
     })
   })
 }
@@ -120,7 +122,7 @@ const loadDataRules = async (path) => {
 
     if (ruleset.$.platform && ruleset.$.platform !== "mixedcontent")
       console.error(`Unknown platform ${ruleset.$.platform}, ignored it`)
-    formated_rulesets.push([                       // Record attributes:
+    formated_rulesets.push([                 // Record attributes:
       rulesetid,                             // INT rulesetid
       ruleset.$.name,                        // VARCHAR name
       basename(file),                        // VARCHAR file
@@ -165,56 +167,23 @@ const loadDataRules = async (path) => {
     }
   }
 
-  connection.query("INSERT INTO rulesets (`rulesetid`, `name`, `file`, `default_off`, `mixedcontent`) VALUES ?", [formated_rulesets],
-    function (error, results, fields) {
-      if (error)
-        console.log(error, results, fields)
-      else
-        console.log("Database: Inserted all rulesets' unique attributes")
-    })
+  if (formated_rulesets.length > 0)
+    await queryPromise("INSERT INTO rulesets (`rulesetid`, `name`, `file`, `default_off`, `mixedcontent`) VALUES ?", [formated_rulesets])
 
+  if (formated_targets.length > 0)
+    await queryPromise("INSERT INTO ruleset_targets (`rulesetid`, `target`) VALUES ?", [formated_targets])
 
-  connection.query("INSERT INTO ruleset_targets (`rulesetid`, `target`) VALUES ?", [formated_targets],
-    function (error, results, fields) {
-      if (error)
-        console.log(error, results, fields, error)
-      else
-        console.log("Database: Inserted all rulesets' targets")
-    })
+  if (formated_rules.length > 0)
+    await queryPromise("INSERT INTO ruleset_rules (`rulesetid`, `from`, `to`) VALUES ?", [formated_rules])
 
-  connection.query("INSERT INTO ruleset_rules (`rulesetid`, `from`, `to`) VALUES ?", [formated_rules],
-    function (error, results, fields) {
-      if (error)
-        console.log(error, fields)
-      else
-        console.log("Database: Inserted all rulesets' rules")
-    })
+  if (formated_tests.length > 0)
+    await queryPromise("INSERT INTO ruleset_tests (`rulesetid`, `url`) VALUES ?", [formated_tests])
 
-  connection.query("INSERT INTO ruleset_tests (`rulesetid`, `url`) VALUES ?", [formated_tests],
-    function (error, results, fields) {
-      if (error)
-        console.log(error, fields)
-      else
-        console.log("Database: Inserted all rulesets' tests")
-    })
+  if (formated_exclusions.length > 0)
+    await queryPromise("INSERT INTO ruleset_exclusions (`rulesetid`, `pattern`) VALUES ?", [formated_exclusions])
 
-
-  connection.query("INSERT INTO ruleset_exclusions (`rulesetid`, `pattern`) VALUES ?", [formated_exclusions],
-    function (error, results, fields) {
-      if (error)
-        console.log(error, fields)
-      else
-        console.log("Database: Inserted all rulesets' exclusions")
-    })
-
-  connection.query("INSERT INTO ruleset_securecookies (`rulesetid`, `host`, `name`) VALUES ?", [formated_cookies],
-    function (error, results, fields) {
-      if (error)
-        console.log(error, fields)
-      else
-        console.log("Database: Inserted all rulesets' securecookies")
-    })
-
+  if (formated_cookies.length > 0)
+    await queryPromise("INSERT INTO ruleset_securecookies (`rulesetid`, `host`, `name`) VALUES ?", [formated_cookies])
 }
 
 const loadData = async () => {
@@ -254,8 +223,212 @@ const loadData = async () => {
   return true
 }
 
+const getRulesetById = async (rulesetid) => {
+  const longList  = [rulesetid, rulesetid, rulesetid, rulesetid, rulesetid, rulesetid]
+  const longQuery = "SELECT * FROM rulesets WHERE rulesets.rulesetid=?; \
+    SELECT * FROM ruleset_targets WHERE ruleset_targets.rulesetid=?; \
+    SELECT * FROM ruleset_rules WHERE ruleset_rules.rulesetid=?; \
+    SELECT * FROM ruleset_exclusions WHERE ruleset_exclusions.rulesetid=?; \
+    SELECT * FROM ruleset_securecookies WHERE ruleset_securecookies.rulesetid=?; \
+    SELECT * FROM ruleset_tests WHERE  ruleset_tests.rulesetid=?;"
+
+  const data = await queryPromise (longQuery, longList)
+
+  // Convert response into a neat object
+  const ruleset = {
+    "rulesetid": rulesetid,
+    "name": data[0][0]["name"],
+    "file": data[0][0]["file"],
+    "default_off": data[0][0]["default_off"],
+    "mixedcontent": Boolean(data[0][0]["mixedcontent"]), // This converts a buffer to boolean
+    "comment": data[0][0]["comment"],
+    "targets": data[1],
+    "rules": data[2],
+    "exclusions": data[3],
+    "securecookies": data[4],
+    "tests": data[5]
+  }
+
+  return ruleset
+}
+
+const searchRulesetsByTarget = async (target) => {
+  const  joinQuery = 'SELECT * FROM ruleset_targets INNER JOIN rulesets ON ruleset_targets.rulesetid=rulesets.rulesetid WHERE ruleset_targets.target LIKE ?;'
+  const targetName = ["\%" + target + "\%"]
+
+  const data = await queryPromise (joinQuery, targetName)
+
+  let matches = []
+  for (const record of data){
+    let index = -1
+    for (const i in matches)
+      if (matches[i].name === record.name){
+        index = i
+        break
+      }
+    if (index === -1){
+      index = matches.length
+      let formatted = {}
+      formatted["name"] = record.name
+      formatted["file"] = record.file
+      formatted["rulesetid"] = record.rulesetid
+      if (record.default_off)
+        formatted["default_off"] = record.default_off
+      if (record.comment)
+        formatted["comment"] = record.comment
+      formatted["mixedcontent"] = Boolean(record.mixedcontent)
+      formatted["targets"] = [record.target]
+      matches.push(formatted)
+    } else {
+      matches[index].targets.push(record.target)
+    }
+  }
+  return matches
+}
+
+const newProposal = async (proposal) => {
+  // NOTE: Very important to avoid off-by-one error.
+  // proposalid must be set BEFORE proposal insertion
+  const proposalidQuery = "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE  TABLE_NAME = 'proposal_rulesets';"
+  const proposalidQuerydata = await queryPromise (proposalidQuery)
+  const proposalid = proposalidQuerydata[0]["AUTO_INCREMENT"]
+  console.log(proposalid)
+
+console.log("proposal database",proposal)
+  // TODO: Copy data of the original ruleset?
+  const query = "INSERT INTO `proposal_rulesets` (`rulesetid`, `author`, `pullrequest`, `name`, `file`, `default_off`, `mixedcontent`, `comment`) VALUES ?"
+  const formatted_proposal = [[[
+    proposal.rulesetid,
+    proposal.author,
+    proposal.pullrequest,
+    null,
+    null,
+    null,
+    false,
+    null
+  ]]]
+
+  const data = await queryPromise (query, formatted_proposal)
+  // TODO: extract proposalid from result of this query to avoid the first query and handle erorrs
+
+  return proposalid
+}
+
+const deleteProposal = async (proposalid) => {
+  const query = "DELETE FROM `proposal_rulesets` WHERE `proposalid` = ?;"
+
+  const data = await queryPromise (query, [proposalid])
+}
+
+const saveProposal = async (proposal) => {
+  console.log(proposal)
+// TODO: handle case when a category is empty
+  const queryProposal = "UPDATE `proposal_rulesets` SET `rulesetid`=?, `author`=?, `pullrequest`=?, `name`=?, `file`=?, `default_off`=?, `mixedcontent`=?, `comment`=? WHERE `proposalid`=?;\
+  DELETE FROM `proposal_ruleset_targets` WHERE `proposalid`=?;\
+  DELETE FROM `proposal_ruleset_rules` WHERE `proposalid`=?;\
+  DELETE FROM `proposal_ruleset_exclusions` WHERE `proposalid`=?;\
+  DELETE FROM `proposal_ruleset_tests` WHERE `proposalid`=?;\
+  DELETE FROM `proposal_ruleset_securecookies` WHERE `proposalid`=?;"
+
+  const formattedProposal = [
+    proposal.rulesetid,
+    proposal.author,
+    proposal.pullrequest,
+    proposal.ruleset.name,
+    proposal.ruleset.file,
+    proposal.ruleset.default_off,
+    proposal.ruleset.mixedcontent,
+    proposal.ruleset.comment,
+    proposal.proposalid,
+    proposal.proposalid,
+    proposal.proposalid,
+    proposal.proposalid,
+    proposal.proposalid,
+    proposal.proposalid
+  ]
+
+  await queryPromise (queryProposal, formattedProposal)
+
+  const queryTargets = "INSERT INTO `proposal_ruleset_targets` (`proposalid`, `target`, `comment`) VALUES ?;"
+
+  let formattedTargetsArray = []
+  for (const target of proposal.ruleset.targets)
+    formattedTargetsArray.push([
+      proposal.proposalid,
+      target.target,
+      target.comment
+    ])
+
+  await queryPromise (queryTargets, [formattedTargetsArray])
+
+  const queryRules = "INSERT INTO `proposal_ruleset_rules` (`proposalid`, `from`, `to`, `comment`) VALUES ?;"
+
+  let formattedRulesArray = []
+  for (const rule of proposal.ruleset.rules)
+    formattedRulesArray.push([
+      proposal.proposalid,
+      rule.from,
+      rule.to,
+      rule.comment
+    ])
+
+  await queryPromise (queryRules, [formattedRulesArray])
+
+  if (proposal.ruleset.exclusions.length > 0){
+    const queryExclusions = "INSERT INTO `proposal_ruleset_exclusions` (`proposalid`, `pattern`, `comment`) VALUES ?;"
+
+    let formattedExclusions = []
+    for (const exclusion of proposal.ruleset.exclusions)
+      formattedExclusions.push([
+        proposal.proposalid,
+        exclusion.pattern,
+        exclusion.comment
+      ])
+
+    await queryPromise (queryExclusions, [formattedExclusions])
+  }
+
+  if (proposal.ruleset.tests.length > 0){
+    const queryTests = "INSERT INTO `proposal_ruleset_tests` (`proposalid`, `url`, `comment`) VALUES ?;"
+
+    let formattedTests = []
+    for (const test of proposal.ruleset.tests)
+      formattedTests.push([
+        proposal.proposalid,
+        test.url,
+        test.comment
+      ])
+
+    await queryPromise (queryTests, [formattedTests])
+  }
+
+  if (proposal.ruleset.securecookies.length > 0){
+    const querySecurecookies = "INSERT INTO `proposal_ruleset_securecookies` (`proposalid`, `host`, `name`, `comment`) VALUES ?;"
+
+    let formattedSecurecookies = []
+    for (const securecookie of proposal.ruleset.securecookies)
+      formattedSecurecookies.push([
+        proposal.proposalid,
+        securecookie.host,
+        securecookie.name,
+        securecookie.comment
+      ])
+
+    await queryPromise (querySecurecookies, [formattedSecurecookies])
+  }
+}
+
 module.exports = {
   isOnline: isOnline,
-  query: queryPromise,
-  loadData: loadData
+
+  loadData: loadData,
+
+  // Get ruleset data
+  getRulesetById: getRulesetById,
+  searchByTarget: searchRulesetsByTarget,
+
+  // Store and retreive proposals
+  saveProposal: saveProposal,
+  newProposal: newProposal,
+  deleteProposal: deleteProposal
 }

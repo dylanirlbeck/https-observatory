@@ -1,4 +1,11 @@
-/* Server using Node.js and Express */
+/** Server using Node.js and Express
+ * This file all network-oriented code:
+ *  - HTTP status codes
+ *  - security headers
+ *  - authentication logic (later)
+ */
+
+"use strict"
 
 /* Node.js standard libraries */
 const fs = require("fs")
@@ -15,6 +22,12 @@ const database = require("./database/database.js")
 /* Configuration */
 const configuration = require("./configuration.json").express
 
+/* Make Node crash on unhandled promise rejection
+ * Unhandled promise rejection is deprecated
+ * Source: https://medium.com/@dtinth/making-unhandled-promise-rejections-crash-the-node-js-process-ffc27cfcc9dd
+ */
+process.on("unhandledRejection", up => { throw up })
+
 /**
  * This is the main function of the entire server.
  * It is async so that we can use await inside of it.
@@ -26,6 +39,9 @@ const main = async () => {
 
   // Start Express server
   const server = express()
+
+  // Set mode to production
+  server.set("env", configuration.env)
 
   // Do not leak information about Express server in "x-powered-by" header
   server.disable("x-powered-by")
@@ -68,8 +84,9 @@ const main = async () => {
 
   // Serve dynamic content from "/search?" API endpoint
   server.get("/search?", (request, response) => {
+    const target = request.query.target
 
-    if (request.query.target.length < 2){
+    if (target.length < 2){
       // Status code 400 "Bad Request"
       response.status(400)
       response.setHeader("Content-Type", "application/json")
@@ -77,6 +94,7 @@ const main = async () => {
       return
     }
 
+<<<<<<< HEAD
     const  joinQuery = 'SELECT * FROM ruleset_targets INNER JOIN rulesets ON ruleset_targets.rulesetid=rulesets.rulesetid WHERE ruleset_targets.target LIKE ?;'
     const targetName = "\%" + request.query.target + "\%"
 
@@ -109,12 +127,20 @@ const main = async () => {
       }
       response.setHeader("Content-Type", "application/json")
       response.send(JSON.stringify(data))
+=======
+    database.searchByTarget(target)
+    .then ((ruleset) => {
+      response.status(200)
+      response.setHeader("Content-Type", "application/json")
+      response.send(JSON.stringify(ruleset))
+>>>>>>> upstream/master
     })
   })
 
   server.get("/rulesetinfo?", (request, response) => {
     console.log("Request: /rulesetinfo? query:", JSON.stringify(request.query))
 
+<<<<<<< HEAD
     const rulesetid = request.query.rulesetid
     const longList  = [rulesetid, rulesetid, rulesetid, rulesetid, rulesetid, rulesetid]
     const longQuery = "SELECT * FROM rulesets WHERE rulesets.rulesetid=?; \
@@ -141,6 +167,14 @@ const main = async () => {
       }
       response.setHeader("Content-Type", "application/json")
       response.send(JSON.stringify(result))
+=======
+    const rulesetid = parseInt(request.query.rulesetid)
+
+    database.getRulesetById(rulesetid)
+    .then ((ruleset) => {
+      response.setHeader("Content-Type", "application/json")
+      response.send(JSON.stringify(ruleset))
+>>>>>>> upstream/master
     })
   })
 
@@ -149,17 +183,70 @@ const main = async () => {
   // All endpoints that accept requests with JSON payload in body must go below.
   server.use(express.json())
 
+<<<<<<< HEAD
   server.put("/save/", (request, response) => {
     const ruleset = request.body
     console.log(JSON.stringify(ruleset))
     response.setHeader("Content-Type", "application/json")
     response.status(201)
     response.send(JSON.stringify({'message': 'Received'}))
+=======
+  // 
+  server.post("/new/", (request, response) => {
+    // TODO: check authorization
+
+    // Proposal contains the rulesetid of rule that is to be forked as well as info about its author
+    const new_proposal = request.body
+
+    database.newProposal(new_proposal)
+    .then(result => {
+      console.log(JSON.stringify(result))
+      response.setHeader("Content-Type", "application/json")
+      response.status(201)
+      response.send(JSON.stringify({
+        "message": "Created",
+        "proposalid": result
+      }))
+    })
+
+  })
+
+  server.delete("/delete?", (request, response) => {
+    // TODO: check authorization
+    const proposalid = request.query.proposalid
+
+    database.deleteProposal(proposalid)
+    .then(() => {
+      response.setHeader("Content-Type", "application/json")
+      response.status(200)
+      response.send(JSON.stringify({"message": "Deleted"}))
+    })
+    .catch(error => {
+      response.setHeader("Content-Type", "application/json")
+      response.status(400)
+      response.send(JSON.stringify({"message": "You are being weird."}))
+    })
+  })
+
+  server.put("/save/", (request, response) => {
+    // TODO: check authorization
+
+    // Proposal contains the proposed ruleset as well as info about its author
+    const proposal = request.body
+
+    console.log(JSON.stringify(proposal))
+    // TODO: handle database errors, logged out users
+    database.saveProposal(proposal)
+    response.setHeader("Content-Type", "application/json")
+    response.status(200)
+    response.send(JSON.stringify({'message': 'Updated'}))
+>>>>>>> upstream/master
   })
 
   server.listen(configuration.port, () =>
     console.log(`Server listening on port ${configuration.port}`)
   )
+
 }
 
 // Start server
