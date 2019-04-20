@@ -151,6 +151,26 @@ window.addEventListener("load", (event) => {
         file.setAttribute("class", "text-small text-gray-light")
         file.innerText = ruleset.file
 
+        // ruleset labels
+        const labels = document.createElement("DIV")
+        labels.setAttribute("class", "labels")
+        // default_off
+        if (typeof ruleset.default_off === "string"&& ruleset.default_off.length > 0){
+          const default_off = document.createElement("SPAN")
+          default_off.setAttribute("class", "Label Label--orange")
+          default_off.setAttribute("title", ruleset.default_off)
+          default_off.innerText = "off"
+          labels.appendChild(default_off)
+        }
+        // mixedcontent
+        if (ruleset.mixedcontent){
+          const mixedcontent = document.createElement("SPAN")
+          mixedcontent.setAttribute("class", "Label Label--gray-darker")
+          mixedcontent.setAttribute("title", "See docs for details")
+          mixedcontent.innerText = "mixedcontent"
+          labels.appendChild(mixedcontent)
+        }
+
         const targets = document.createElement("div")
         targets.setAttribute("class", "text-small text-gray-light")
         targets.innerText = ruleset.targets.join(", ")
@@ -164,6 +184,7 @@ window.addEventListener("load", (event) => {
         button.innerText = "View"
 
         header.appendChild(row_title)
+        header.appendChild(labels)
         header.appendChild(button)
         result.appendChild(header)
         row_title.appendChild(name)
