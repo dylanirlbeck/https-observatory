@@ -9,11 +9,8 @@
 
     <title>HTTPS Observatory</title>
 
-    <!-- Primer core CSS -->
-    <link href="/css/primer.css" rel="stylesheet">
-
-    <!-- Custom styles for this template -->
-    <link href="/css/custom.css" rel="stylesheet">
+    <!-- Custom styles for this page -->
+    <link href="/css/search.css" rel="stylesheet">
 
     <!-- Custom scripts for this page -->
     <script type="text/javascript" src="/script.js" async></script>
@@ -51,7 +48,22 @@
       </div>
 
       <div class="border hidden" id="result">
-        <div class="Box" id="result-box"></div>
+        <div class="Box" id="result-box">
+
+        <!-- Template -->
+        <div class="Box-row">
+          <div class="d-flex flex-items-center">
+            <div class="flex-auto"><strong>Name</strong><div class="text-small text-gray-light">FileName</div></div>
+            <div class="labels">
+              <span class="Label Label--orange" title="failed ruleset test">off</span>
+              <span class="Label Label--gray-darker" title="See docs for details">mixedcontent</span>
+            </div>
+            <a href="/submission/?rulesetid=19533" class="btn btn-sm" role="button">View</a>
+          </div>
+          <div class="text-small text-gray-light">example.com, www.example.com</div>
+        </div>
+
+        </div>
       </div>
     </main>
   </body>
