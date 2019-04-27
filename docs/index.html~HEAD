@@ -24,12 +24,8 @@
       <div class="container container-lg">
         <a href="/" class="masthead-logo">HTTPS Observatory Explorer</a>
         <nav role="navigation" class="masthead-nav">
-          <a href="/submission/">Submit New PR</a>
+          <a href="/submission/">Propose Ruleset</a>
           <a href="/about/">About Us</a>
-
-          <!-- Adding this here for testing Github login -->
-          <a href="/user/signin/callback">Callback</a>
-
           <a href="https://github.com/EFForg/https-everywhere">HTTPS Everywhere</a>
         </nav>
       </div>
@@ -49,8 +45,6 @@
           </dl>
         </form>
       </div>
-      <!-- Adding this here for testing Github login -->
-      <a href="https://github.com/login/oauth/authorize?client_id=d2ca1b154f386bebe395">Sign in with Github</a>
 
       <div class="lds-roller text-center hidden" id="lds-roller">
         <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
