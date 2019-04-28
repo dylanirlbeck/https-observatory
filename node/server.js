@@ -228,8 +228,8 @@ const main = async () => {
 
         //make sure to serialize your JSON body
         body: JSON.stringify({
-          'client_id': 'd2ca1b154f386bebe395',
-          'client_secret': '15af90cd31cd4f4a495087ce84e79342956a8ee8',
+          'client_id': '',
+          'client_secret': '',
           'code': code
         })
       })
