@@ -253,7 +253,7 @@ const getRulesetById = async (rulesetid) => {
 }
 
 const searchRulesetsByTarget = async (target) => {
-  const  joinQuery = 'SELECT * FROM ruleset_targets INNER JOIN rulesets ON ruleset_targets.rulesetid=rulesets.rulesetid WHERE ruleset_targets.target LIKE ?;'
+  const  joinQuery = "SELECT * FROM ruleset_targets INNER JOIN rulesets ON ruleset_targets.rulesetid=rulesets.rulesetid WHERE ruleset_targets.target LIKE ?;"
   const targetName = ["\%" + target + "\%"]
 
   const data = await queryPromise (joinQuery, targetName)
