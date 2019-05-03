@@ -18,7 +18,6 @@ const helmet = require("helmet")
 
 /* Custom libraries */
 const database = require("./database/database.js")
-const transparency = require("./sources/transparency.js")
 
 /* Configuration */
 const configuration = require("./configuration.json").express
@@ -34,7 +33,6 @@ process.on("unhandledRejection", up => { throw up })
  * It is async so that we can use await inside of it.
  */
 const main = async () => {
-  transparency.relatedDomains("ubisoft.com")
   // First, load all data
   const loaded = await database.loadData()
   console.log("Loaded data", loaded)
