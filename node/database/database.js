@@ -252,14 +252,25 @@ const getRulesetById = async (rulesetid) => {
   return ruleset
 }
 
-const searchRulesetsByTarget = async (target) => {
-  const  joinQuery = 'SELECT * FROM ruleset_targets INNER JOIN rulesets ON ruleset_targets.rulesetid=rulesets.rulesetid WHERE ruleset_targets.target LIKE ?;'
-  const targetName = ["\%" + target + "\%"]
+const searchRulesetsByTarget = async (target, page_num, BATCH_SIZE) => {
+  const joinQuery = "SELECT * FROM (SELECT name, file, rulesets.rulesetid, default_off, rulesets.comment, mixedcontent, target FROM ruleset_targets INNER JOIN rulesets ON ruleset_targets.rulesetid=rulesets.rulesetid WHERE ruleset_targets.target LIKE ?) AS T ORDER BY target LIMIT ?,?;"
+  const joinQueryArgs = ["\%" + target + "\%", (page_num - 1)*BATCH_SIZE , BATCH_SIZE]
 
-  const data = await queryPromise (joinQuery, targetName)
+  const countQuery = "SELECT count(rulesetid) AS total_count FROM (SELECT rulesetid FROM (SELECT name, file, rulesets.rulesetid, default_off, rulesets.comment, mixedcontent, target FROM ruleset_targets INNER JOIN rulesets ON ruleset_targets.rulesetid=rulesets.rulesetid WHERE ruleset_targets.target LIKE ?) AS T GROUP BY rulesetid) AS Q;"
+  const countQueryArgs = ["\%" + target + "\%"]
 
+  const joinPromise = queryPromise (joinQuery, joinQueryArgs)
+  const countPromise = queryPromise (countQuery, countQueryArgs)
+
+  const data = await joinPromise
+  const countdata = await countPromise
+  
+  
+  const count = countdata[0].total_count
+  
   let matches = []
   for (const record of data){
+    //Only add if there are not duplicates. 
     let index = -1
     for (const i in matches)
       if (matches[i].name === record.name){
@@ -283,7 +294,8 @@ const searchRulesetsByTarget = async (target) => {
       matches[index].targets.push(record.target)
     }
   }
-  return matches
+  let matchesWithCount = {"count": count, "matches": matches}
+  return matchesWithCount
 }
 
 const newProposal = async (proposal) => {

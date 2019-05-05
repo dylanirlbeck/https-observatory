@@ -1,344 +1,292 @@
 "use strict"
 
-let state = {
-  rulesetid: undefined, // This is null iff the currently displayed data might be incorrect
-  // E.g., nothing is displayed or data is being loaded
-  user: "TODO", // This is null iff the user is not logged in
-  proposalid: undefined // This is null iff the page displays official ruleset version, form is not editable
-  // Otherwise it's an integer id proposalid
-}
+// For network requests let"s use the modern (circa 2014) fetch API
+// We can ensure backwards-ompatibility later via a polyfill like
+// https://github.github.io/fetch/ or https://github.com/developit/unfetch
 
-const login = () => {
-  state.user = "TODO"
-  document.getElementById("button-fork-create").classList.remove("hidden")
-  document.getElementById("title").innerText = "Logged in, wiewing ruleset"
-}
-
-const logout = () => {
-  document.getElementById("submit").disabled = true
-  document.getElementById("save").disabled = true
-  document.getElementById("button-fork-delete").classList.add("hidden")
-  document.querySelectorAll("INPUT").forEach((a) => a.disabled = true)
-  document.querySelectorAll(".btn").forEach((a) => a.disabled = true)
-}
-
-const edit = () => {
-  document.querySelectorAll("INPUT").forEach((a) => a.disabled = false)
-  document.querySelectorAll(".btn").forEach((a) => a.disabled = false)
-  document.getElementById("submit").disabled = false
-  document.getElementById("save").disabled = false
-  document.getElementById("button-fork-create").classList.add("hidden")
-  document.getElementById("button-fork-delete").classList.remove("hidden")
-}
-
-const types = ["targets", "rules", "exclusions", "tests", "securecookies"]
-
-const displayData = (data) => {
-  try {
-    // Invalidate past rulesetid
-    state.rulesetid = null
-
-    // Ruleset unique attributes
-    document.getElementById("name").value = data.name
-    document.getElementById("file").value = data.file
-    document.getElementById("mixedcontent").checked = data.mixedcontent
-    document.getElementById("default_off").value = data.default_off ? data.default_off : ""
-
-    // Ruleset "array" attributes
-    for (const type of types) {
-      const list = document.getElementById(type)
-      const array = data[type]
-      if (!array)
-        continue
-      for (const record of array) {
-        const node = addElement(list)
-        for (const attribute in record) {
-          const field = node.querySelector("[name='" + attribute + "']")
-          if (field)
-            field.value = record[attribute]
-        }
-      }
-    }
-
-    // Set new ruleset id
-    state.rulesetid = data.rulesetid
-  } catch (e) {
-    console.error("Failed to display data", data, error)
-  }
-}
-
-const readForm = () => {
-  try {
-    // Read unique attributes
-    let ruleset = {
-      name: document.getElementById("name").value,
-      file: document.getElementById("file").value,
-      mixedcontent: document.getElementById("mixedcontent").checked,
-      default_off: document.getElementById("default_off").value
-    }
-
-    // Read array attributes
-    for (const type of types) {
-      const ul = document.getElementById(type)
-      const lis = ul.getElementsByTagName("LI")
-      let array = []
-      for (const li of lis) {
-        if (li.getAttribute("id") !== null)
-          continue // this is a prototype
-        const inputs = li.getElementsByTagName("INPUT")
-        let record = {}
-        for (const input of inputs) {
-          const key = input.name
-          const value = input.value
-          record[key] = value
-        }
-        array.push(record)
-      }
-      ruleset[type] = array
-    }
-    console.log("RULESET incoming")
-    console.log(ruleset)
-    return ruleset
-  } catch (e) {
-    console.error("Could not parse data")
-  }
-}
-
-/* Fetch ruleser information and display it in the form */
-const fetchData = (rulesetid) => {
-  if (!rulesetid)
-    return
-
-  const url = "/rulesetinfo?rulesetid=" + rulesetid
-
-  fetch(url)
-    .then((response) => { // Check if fetch suceeded and extract the data
-      if (response.ok) {
-        return response.json()
-      } else {
-        return Promise.reject(new Error("Search request failed"))
-      }
-    })
-    .then((data) => {
-      displayData(data)
-      console.log("DATA: ", data)
-      if (data.file)
-        queryXML(data.file)
-    })
-    .catch((error) => console.error("failed to display data", error))
-}
-
-const queryXML = (filename) => {
-  if (!filename)
-    return
-
-  const url = "/xml/" + filename
-
-  fetch(url)
-    .then((response) => { // Check if fetch suceeded and extract the data
-      if (response.ok) {
-        return response.text()
-      } else {
-        return Promise.reject(new Error("XML unavailable at " + url))
-      }
-    })
-    .then((xml) => {
-      document.getElementById("xml").innerText = xml //response.text()//"some"//xml
-    })
-    .catch((error) => console.error("failed to display XML"))
-}
-
-const loadPage = async () => {
-  const url_string = window.location.href
-  const url = new URL(url_string)
-  const rulesetid_str = url.searchParams.get("rulesetid")
-  const rulesetid = Number(rulesetid_str)
-  console.log("Displaying ruleset: rulesetid = " + rulesetid)
-  fetchData(rulesetid)
-  // TODO: use History API to display nice URL
-}
-
-/* Code below handles "Add" and "Delete" button clicks */
-
-/* This deletes a specified element from a lists of attributes (if allowed) */
-const deleteElement = (button) => {
-  const li = button.parentNode
-  const ul = li.parentNode
-  const minCount = ul.hasAttribute("min-count") ? ul.getAttribute("min-count") : 0
-  const currCount = ul.getElementsByTagName("LI").length - 1 // Remember about the prototype node
-  if (currCount > minCount) {
-    li.parentNode.removeChild(li)
-  } else {
-    console.log("Too few children")
-  }
-}
-
-/* This adds an empty element to lists of attributes that can have multipl elements */
-const addElement = (ul) => {
-  try {
-    const node = ul.getElementsByTagName("LI")[0].cloneNode(true)
-    node.removeAttribute("id")
-    ul.appendChild(node)
-    return node
-  } catch (e) {
-    console.error("Could not add element")
-  }
-}
-
-/* Submit the ruleset as a JSON.
- * JSON represents the nested structures and arrays which are impossible to represent in URL params
- * JSON can handle large payloads while URLs are limited in length
+/* Delay between submitting the search and showing loading animation
+ * This should be small enough for user not to notice the delay,
+ * but large enough for simple query to resolve and return.
+ * The idea is, loading animation should not appear for a fraction of a second
+ * because it essentally blinks and blinking is annoying.
  */
-const save = () => {
-  const ruleset = readForm()
-  if (!ruleset)
-    return // TODO: display error
+const loadingAnimationDelay = 500 /* ms */
 
-  console.log(ruleset)
+// This code is adopted from https://code.google.com/archive/p/form-serialize/
+// (after few modifications)
+const serialize = (form) => {
+  if (!form || form.nodeName !== "FORM")
+    return
+  let queries = []
+  for (const formElement of form.elements){
+    if (formElement.name === "")
+      continue
+    switch (formElement.nodeName) {
+      case "INPUT":
+        switch (formElement.type) {
+          case "text":
+          case "hidden":
+          case "password":
+          case "button":
+          case "reset":
+          case "submit":
+            queries.push(formElement.name + "=" + encodeURIComponent(formElement.value))
+            break
+          case "checkbox":
+          case "radio":
+            if (formElement.checked)
+              queries.push(formElement.name + "=" + encodeURIComponent(formElement.value))
+            break
+          case "file":
+            break
+        }
+        break
+      case "TEXTAREA":
+        queries.push(formElement.name + "=" + encodeURIComponent(formElement.value))
+        break
+      case "SELECT":
+        switch (formElement.type) {
+          case "select-one":
+            queries.push(formElement.name + "=" + encodeURIComponent(formElement.value))
+            break
+          case "select-multiple":
+            for (const selectOption of formElement.options)
+              if (selectOption.selected)
+                queries.push(formElement.name + "=" + encodeURIComponent(selectOption.value))
+            break
+        }
+        break
+      case "BUTTON":
+        switch (formElement.type) {
+          case "reset":
+          case "submit":
+          case "button":
+            queries.push(formElement.name + "=" + encodeURIComponent(formElement.value))
+            break
+        }
+        break
+    }
+  }
+  return queries.join("&")
+}
 
-  const proposal = {
-    author: state.user,
-    rulesetid: state.rulesetid,
-    proposalid: state.proposalid,
-    ruleset: ruleset
+const hideFeedback = () => {
+  document.getElementById("result").classList.add("hidden")
+  document.getElementById("invalid-input").classList.add("hidden")
+  document.getElementById("lds-roller").classList.add("hidden")
+}
+
+const showLoadingAnimation = () => {
+  // Start loader animation and results div and errors to invisible
+  // Show "loading" animation
+  document.getElementById("lds-roller").classList.remove("hidden")
+}
+
+const showSearchError = (message) => {
+  message = message || "Invalid input."
+  document.getElementById("invalid-input-message").innerText = message
+  document.getElementById("invalid-input").classList.remove("hidden")
+}
+const generateButtonChars = (page_idx, pages) => {
+  page_idx = Math.ceil(page_idx)
+  pages = Math.ceil(pages)
+  if (pages === 1){
+    return [1]
+  }
+  let firstFew = [1]
+  let lastFew = [pages]
+  let middleThree = [page_idx - 1, page_idx, page_idx + 1]
+  let all_elems = firstFew.concat(middleThree).concat(lastFew)
+  let uniqueArray = all_elems.filter(function(item, pos) {
+    return all_elems.indexOf(item) == pos;
+})
+  var indiciesToRemove = [uniqueArray.indexOf(0), uniqueArray.indexOf(pages+1)];
+  for (const index of indiciesToRemove) {
+    if (index > -1) {
+      uniqueArray.splice(index, 1);
+    }
   }
 
-  fetch("/save/", {
+
+  return uniqueArray.sort()
+}
+
+// TODO: use DOMContentLoaded
+window.addEventListener("load", (event) => {
+  document.getElementById("pager").addEventListener("click", (event) => {
+    //Set event.target attributes to selected
+    //if we changed the page selected, loop through all the attributes and
+    const pagerChildren = document.getElementById("pager").childNodes[0].childNodes
+    if (event.target.class !== "current selected"){
+      //Go through all the page buttons and reset their attributes.
+      for (const page_button of pagerChildren) {
+        //Remove all attributes of the current button
+        page_button.removeAttribute("class")
+      }
+      event.target.setAttribute("class", "current selected")
+      reloadResults();
+    }
+  })
+  document.getElementById("search").addEventListener("submit", (event) => reloadResults())
+})
+
+const reloadResults = () => {
+  event.preventDefault()
+
+  // Hide all messages that are currently displayed
+  hideFeedback()
+
+
+  // Show loading animation after a short delay (see commend above for explanation)
+  const loadingAnimationTimer = setTimeout(showLoadingAnimation, loadingAnimationDelay)
+
+  const page_num = document.querySelector(".current.selected").innerText
+  const search_query_text = serialize(document.getElementById('search'))
+
+  const url = "/search?" + search_query_text + "&page_num=" + page_num
+
+  fetch(url)
+  .then(async (response) => {  // Check if fetch suceeded and extract the data
+    // Don"t show loading animation
+    clearTimeout(loadingAnimationTimer)
+
+    if (response.ok) {
+      return response.json()
+    } else {
+      const data = await response.json()
+      return Promise.reject(new Error(data.message))
+    }
+  })
+  .then((jsonResp) => {
+    const count = jsonResp['count']
+    const  data = jsonResp['matches']
+
+    // Clear body of results field
+    document.getElementById("result-box").innerHTML = ""
+
+    // Show error if there are no results
+  if (data.length === 0){
+    // TODO: Design thing: should we have different UIs for
+    // errors and empty result set?
+    showSearchError("No results found.")
+    return
+  }
+
+  //Rendering the page buttons
+  const BATCH_SIZE = 50
+
+  document.getElementById("pager").innerHTML = ""
+  const allPageButtons = document.createElement("div")
+
+  const listOfButtons = generateButtonChars(page_num, count / BATCH_SIZE)
+
+  for (const buttonChar of listOfButtons){
+    const singleButton = document.createElement("a")
+    if(buttonChar == page_num){
+      singleButton.setAttribute("class", "current selected")
+      singleButton.setAttribute("aria-current", "true")
+    }
+    else{
+      singleButton.setAttribute("aria-label", "Page " + buttonChar)
+    }
+    singleButton.innerHTML = buttonChar
+    allPageButtons.appendChild(singleButton)
+  }
+
+  document.getElementById("pager").appendChild(allPageButtons)
+
+  // Iterate through every target found and create row
+  for (const ruleset of data) {
+      // Parent row div
+      const result = document.createElement("div")
+      result.setAttribute("class", "Box-row")
+
+      const header = document.createElement("div")
+      header.setAttribute("class", "d-flex flex-items-center")
+
+
+      // Holds ruleset name and file name
+      const row_title = document.createElement("div")
+      row_title.setAttribute("class", "flex-auto")
+
+      // ruleset name
+      const name = document.createElement("strong")
+      name.innerText = ruleset.name
+
+      // ruleset file name
+      const file = document.createElement("div")
+      file.setAttribute("class", "text-small text-gray-light")
+      file.innerText = ruleset.file
+
+      // ruleset labels
+      const labels = document.createElement("DIV")
+      labels.setAttribute("class", "labels")
+      // default_off
+      if (typeof ruleset.default_off === "string"&& ruleset.default_off.length > 0){
+        const default_off = document.createElement("SPAN")
+        default_off.setAttribute("class", "Label Label--orange")
+        default_off.setAttribute("title", ruleset.default_off)
+        default_off.innerText = "off"
+        labels.appendChild(default_off)
+      }
+      // mixedcontent
+      if (ruleset.mixedcontent){
+        const mixedcontent = document.createElement("SPAN")
+        mixedcontent.setAttribute("class", "Label Label--gray-darker")
+        mixedcontent.setAttribute("title", "See docs for details")
+        mixedcontent.innerText = "mixedcontent"
+        labels.appendChild(mixedcontent)
+      }
+
+      const targets = document.createElement("div")
+      targets.setAttribute("class", "text-small text-gray-light")
+      targets.innerText = ruleset.targets.join(", ")
+
+      // "View" button
+      const link = "/submission/?rulesetid=" + ruleset.rulesetid
+      const button = document.createElement("A")
+      button.href = link
+      button.setAttribute("class", "btn btn-sm")
+      button.setAttribute("role", "button") // TODO: does this really "improve accessibility"?
+      button.innerText = "View"
+
+      header.appendChild(row_title)
+      header.appendChild(labels)
+      header.appendChild(button)
+      result.appendChild(header)
+      row_title.appendChild(name)
+      row_title.appendChild(file)
+      result.appendChild(targets)
+
+      document.getElementById("result-box").appendChild(result)
+    }
+
+    // Show results field and hide loading animation
+    document.getElementById("result").classList.remove("hidden")
+    document.getElementById("lds-roller").classList.add("hidden")
+  }).catch ((error) => {
+    clearTimeout(loadingAnimationTimer)
+    const str = error.toString()
+    const message = str.substr(str.indexOf(": ")+2)
+    hideFeedback() // to hide loading animation
+    showSearchError(message)
+  })
+
+  return false
+}
+
+document.getElementById("submit").addEventListener("click", (event) => {
+  // JSON
+  const data = readForm()
+  fetch("/user/submit/pr", {
       method: "PUT",
       cache: "no-cache",
       headers: {
         "Content-Type": "application/json",
       },
       referrer: "origin",
-      body: JSON.stringify(proposal),
+      body: JSON.stringify(data),
     })
-    .then(response => {
-      if (response.ok)
-        return response.json()
-      else
-        return Promise.reject(new Error("Failed to submit data"))
-    })
-    .then((data) => {
-      //    displayData(data)
-      //    if (data.file)
-      //      queryXML(data.file)
-    })
-    .catch((error) => console.error("Pull request failed", error))
-}
 
-
-/* Initialize the document with event handlers */
-const init = () => {
-  //logout()
-
-  document.addEventListener("click", (event) => {
-    /* "Add" button */
-    if (event.target.classList.contains("btn-add")) {
-      event.preventDefault()
-      const dl = event.target.parentNode.parentNode.parentNode
-      const ul = dl.getElementsByTagName("UL")[0]
-      addElement(ul)
-    }
-    /* "Delete" button */
-    if (event.target.classList.contains("btn-delete"))
-      deleteElement(event.target)
-  })
-
-  document.getElementById("button-fork-delete").addEventListener("click", (event) => {
-    console.log("Delete!")
-    logout()
-  })
-
-  /* Fork button */
-  document.getElementById("button-fork-create").addEventListener("click", (event) => {
-    console.log("Fork!")
-    const proposal = {
-      author: state.user,
-      rulesetid: state.rulesetid
-    }
-
-    /* Submit the ruleset as a JSON.
-     * Could do it via URL encoding, but this is easier for now
-     */
-    fetch("/new/", {
-        method: "POST",
-        cache: "no-cache",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrer: "origin",
-        body: JSON.stringify(proposal),
-      })
-      .then(response => {
-        if (response.ok)
-          return response.json()
-        else
-          return Promise.reject(new Error("Failed to create new fork"))
-      })
-      .then((data) => {
-        console.log(data)
-        state.proposalid = data.proposalid
-        edit()
-      })
-      .catch((error) => console.error("Failed to create new fork", error))
-  })
-
-  /* Fork Delete button */
-  document.getElementById("button-fork-delete").addEventListener("click", (event) => {
-    console.log("Fork delete!")
-    if (!state.proposalid)
-      return
-
-    const url = "/delete?proposalid=" + state.proposalid
-
-    /* Submit query in URL encoded form.
-     */
-    fetch(url, {
-        method: "DELETE",
-        cache: "no-cache",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        referrer: "origin"
-      })
-      .then(response => {
-        if (response.ok)
-          console.log("Deleted")
-        else
-          return Promise.reject(new Error("Failed to delete"))
-      })
-      .catch((error) => console.error("Failed to delete", error))
-  })
-
-
-  /* Submit button */
-  document.getElementById("submit").addEventListener("click", (event) => {
-    // JSON
-    const data = readForm()
-    fetch("/user/submit/pr", {
-        method: "PUT",
-        cache: "no-cache",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrer: "origin",
-        body: JSON.stringify(data),
-      })
-
-    console.log("Submit! Not implemented yet...")
-  });
-
-  document.getElementById("save").addEventListener("click", (event) => {
-    console.log("Save!")
-    save()
-  })
-}
-
-/* Initialize all scripts upon page load */
-if (document.readyState !== "loading") {
-  /* document is already ready, just execute code now */
-  init()
-  loadPage()
-} else {
-  document.addEventListener("DOMContentLoaded", init)
-}
+  console.log("Submit! Not implemented yet...")
+});

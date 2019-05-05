@@ -44,9 +44,7 @@ const connection = sql.createConnection(credentials)
  * Unhandled promise rejection is deprecated
  * Source: https://medium.com/@dtinth/making-unhandled-promise-rejections-crash-the-node-js-process-ffc27cfcc9dd
  */
-process.on("unhandledRejection", up => {
-  throw up
-})
+process.on("unhandledRejection", up => { throw up })
 
 /**
  * This is the main function of the entire server.
@@ -108,23 +106,23 @@ const main = async () => {
       // Serve dynamic content from "/search?" API endpoint
       server.get("/search?", (request, response) => {
         const target = request.query.target
+        const   page_num = parseInt(request.query.page_num)
+        const BATCH_SIZE = 50
 
-        if (target.length < 2) {
+        if (target.length < 2){
           // Status code 400 "Bad Request"
           response.status(400)
           response.setHeader("Content-Type", "application/json")
-          response.send(JSON.stringify({
-            "message": "Invalid input: Query requires two or more characters."
-          }))
+          response.send(JSON.stringify({"message" : "Invalid input: Query requires two or more characters."}))
           return
         }
 
-        database.searchByTarget(target)
-          .then((ruleset) => {
-            response.status(200)
-            response.setHeader("Content-Type", "application/json")
-            response.send(JSON.stringify(ruleset))
-          })
+        database.searchByTarget(target, page_num, BATCH_SIZE)
+        .then ((rulesetWithCount) => {
+          response.status(200)
+          response.setHeader("Content-Type", "application/json")
+          response.send(JSON.stringify(rulesetWithCount))
+        })
       })
 
       server.get("/rulesetinfo?", (request, response) => {

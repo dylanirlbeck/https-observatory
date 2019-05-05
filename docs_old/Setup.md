@@ -49,3 +49,16 @@ git clone https://github.com/EFForg/https-everywhere.git
 
 #### Chromium HSTS preload list
 Download Chromium HSTS preload list from `https://cs.chromium.org/chromium/src/net/http/transport_security_state_static.json`.
+
+## Run the server
+
+### Build Web UI CSS from SCSS
+To build CSS from Primer CSS source in SCSS and our custom SCSS run this:
+```
+npm run build-webui
+```
+
+### Start server
+```
+npm run server
+```
