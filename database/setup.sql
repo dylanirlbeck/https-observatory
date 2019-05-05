@@ -19,7 +19,7 @@ USE project;
 CREATE TABLE `users` (
 	`userid` INT NOT NULL UNIQUE PRIMARY KEY AUTO_INCREMENT
 		COMMENT 'Internal identifier (for database use only)',
-	`github_id` INT UNIQUE KEY,
+	`github_id` VARCHAR(50) UNIQUE KEY,
 	`github_token` VARCHAR(50)
 ) CHARACTER SET ascii;
 
