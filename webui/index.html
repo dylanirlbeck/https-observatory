@@ -49,22 +49,33 @@
 
       <div class="border hidden" id="result">
         <div class="Box" id="result-box">
-
-        <!-- Template -->
-        <div class="Box-row">
-          <div class="d-flex flex-items-center">
-            <div class="flex-auto"><strong>Name</strong><div class="text-small text-gray-light">FileName</div></div>
+          <!-- Template -->
+          <div class="Box-row">
+            <div class="d-flex flex-items-center">
+              <div class="flex-auto"><strong>Name</strong><div class="text-small text-gray-light">FileName</div></div>
             <div class="labels">
-              <span class="Label Label--orange" title="failed ruleset test">off</span>
-              <span class="Label Label--gray-darker" title="See docs for details">mixedcontent</span>
+                <span class="Label Label--orange" title="failed ruleset test">off</span>
+                <span class="Label Label--gray-darker" title="See docs for details">mixedcontent</span>
             </div>
-            <a href="/submission/?rulesetid=19533" class="btn btn-sm" role="button">View</a>
+              <a href="/submission/?rulesetid=19533" class="btn btn-sm" role="button">View</a>
+            </div>
+            <div class="text-small text-gray-light">example.com, www.example.com</div>
           </div>
-          <div class="text-small text-gray-light">example.com, www.example.com</div>
-        </div>
-
         </div>
       </div>
+      <nav class="paginate-container" aria-label="Pagination">
+          <div id="pager">
+            <span class="previous_page disabled">Previous</span>
+            <em class="current selected" aria-current="true">1</em>
+            <a aria-label="Page 2">2</a>
+            <a href="#url" aria-label="Page 3">3</a>
+            <span class="gap">…</span>
+            <a href="#url" aria-label="Page 8">8</a>
+            <a href="#url" aria-label="Page 9">9</a>
+            <a href="#url" aria-label="Page 10">10</a>
+            <a class="next_page" rel="next" href="#url" aria-label="Next Page">Next</a>
+          </div>
+      </nav>
     </main>
   </body>
 </html>

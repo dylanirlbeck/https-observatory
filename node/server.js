@@ -85,6 +85,8 @@ const main = async () => {
   // Serve dynamic content from "/search?" API endpoint
   server.get("/search?", (request, response) => {
     const target = request.query.target
+    const   page_num = parseInt(request.query.page_num)
+    const BATCH_SIZE = 50
 
     if (target.length < 2){
       // Status code 400 "Bad Request"
@@ -94,11 +96,11 @@ const main = async () => {
       return
     }
 
-    database.searchByTarget(target)
-    .then ((ruleset) => {
+    database.searchByTarget(target, page_num, BATCH_SIZE)
+    .then ((rulesetWithCount) => {
       response.status(200)
       response.setHeader("Content-Type", "application/json")
-      response.send(JSON.stringify(ruleset))
+      response.send(JSON.stringify(rulesetWithCount))
     })
   })
 
