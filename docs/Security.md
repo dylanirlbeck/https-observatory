@@ -34,5 +34,3 @@ See Content Security Policy section.
 
 ## SQL Injection
 See SQL Prepared Statements.
-
-
